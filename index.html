@@ -1,0 +1,1615 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chuva de Blocos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;500;600&family=VT323&family=Press+Start+2P&display=swap">
+<style>
+/* Layout: fliperama de uma tela — tabuleiro no centro, peça guardada e placar à esquerda, fila à direita; no celular os painéis viram uma faixa acima e um controle abaixo */
+:root {
+  --bg: #12162b;
+  --bg-2: #1a2040;
+  --panel: #20284d;
+  --line: #2e3866;
+  --fg: #e8ebff;
+  --muted: #8f97c9;
+  --accent: #5ad1e6;
+  --on-accent: #1a1500;
+  --board: #0d1124;
+  --overlay: rgba(13,17,36,.84);
+  --ring: rgba(46,56,102,.35);
+  --font-display: "Silkscreen", ui-monospace, "Courier New", monospace;
+  --font-body: "Chakra Petch", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+/* Temas: só trocam cores (e, no hacker, o visual de terminal). As cores das peças ficam no THEMES do script. */
+:root[data-theme="noir"] {
+  --bg: #0a0a0a;
+  --bg-2: #1c1c1c;
+  --panel: #141414;
+  --line: #3d3d3d;
+  --fg: #f5f5f5;
+  --muted: #9a9a9a;
+  --accent: #ffffff;
+  --on-accent: #000000;
+  --board: #050505;
+  --overlay: rgba(0,0,0,.86);
+  --ring: rgba(255,255,255,.07);
+  --font-display: "Press Start 2P", "Silkscreen", ui-monospace, monospace;
+  --font-body: "Silkscreen", ui-monospace, monospace;
+}
+/* noir = fliperama antigo: fonte de arcade, cantos retos, bordas grossas e sombra dura deslocada */
+[data-theme="noir"] body { font-size: 13px; }
+[data-theme="noir"] h1 { font-size: 18px; letter-spacing: 0; line-height: 1.4; }
+[data-theme="noir"] .hint { font-size: 12px; }
+[data-theme="noir"] .label { font-size: 8px; letter-spacing: 1px; line-height: 1.6; }
+[data-theme="noir"] .val { font-size: 14px; }
+[data-theme="noir"] .score-row .val.big { font-size: 18px; }
+[data-theme="noir"] .overlay h2 { font-size: 15px; line-height: 1.5; }
+[data-theme="noir"] .btn { font-size: 10px; line-height: 1.6; letter-spacing: 0; }
+[data-theme="noir"] .btn.mode small { font-size: 11px; }
+[data-theme="noir"] .keys b, [data-theme="noir"] .history b { font-size: 8px; }
+[data-theme="noir"] .pad button { font-size: 10px; }
+[data-theme="noir"] .popup { font-size: 14px; line-height: 1.6; }
+[data-theme="noir"] .popup.combo { font-size: 20px; }
+[data-theme="noir"] .box, [data-theme="noir"] .btn, [data-theme="noir"] #board, [data-theme="noir"] .overlay,
+[data-theme="noir"] .pad button, [data-theme="noir"] .scorecard { border-radius: 0; }
+[data-theme="noir"] .box, [data-theme="noir"] .scorecard { border-width: 3px; box-shadow: 4px 4px 0 #000; }
+[data-theme="noir"] #board { border-width: 4px; box-shadow: 6px 6px 0 #000; }
+[data-theme="noir"] .btn, [data-theme="noir"] .pad button { box-shadow: 3px 3px 0 #000; }
+[data-theme="noir"] .btn:active, [data-theme="noir"] .pad button:active { transform: translate(3px, 3px); box-shadow: none; }
+[data-theme="noir"] #board, [data-theme="noir"] .box canvas, [data-theme="noir"] #bgfx { image-rendering: pixelated; }
+:root[data-theme="hacker"] {
+  --bg: #000000;
+  --bg-2: #021a08;
+  --panel: #010d04;
+  --line: #0f5a24;
+  --fg: #33ff66;
+  --muted: #1fa845;
+  --accent: #39ff14;
+  --on-accent: #000000;
+  --board: #000000;
+  --overlay: rgba(0,0,0,.88);
+  --ring: rgba(57,255,20,.12);
+  --font-body: "VT323", ui-monospace, "Courier New", monospace;
+}
+[data-theme="hacker"] body { font-size: 18px; text-shadow: 0 0 6px rgba(51,255,102,.45); }
+[data-theme="hacker"] .box, [data-theme="hacker"] .btn, [data-theme="hacker"] #board,
+[data-theme="hacker"] .overlay, [data-theme="hacker"] .pad button, [data-theme="hacker"] .scorecard { border-radius: 0; }
+[data-theme="hacker"] #board, [data-theme="hacker"] .box canvas { image-rendering: pixelated; }
+[data-theme="hacker"] .btn.mode small, [data-theme="hacker"] .hint, [data-theme="hacker"] .keys { font-size: 16px; }
+/* linhas de varredura de monitor velho, piscando de leve */
+[data-theme="hacker"] body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 10;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.28) 2px 3px);
+  animation: flicker 3.2s infinite;
+}
+/* cursor de terminal piscando nos títulos */
+[data-theme="hacker"] h1::after, [data-theme="hacker"] .overlay h2::after {
+  content: "_"; margin-left: 2px; animation: blink 1s steps(1) infinite;
+}
+@keyframes flicker { 0%, 46%, 54%, 100% { opacity: .9; } 48% { opacity: .55; } 50% { opacity: 1; } 52% { opacity: .7; } 78% { opacity: .82; } }
+@keyframes blink { 50% { opacity: 0; } }
+html, body { height: 100%; }
+body {
+  background: radial-gradient(120% 80% at 50% 0%, var(--bg-2), var(--bg) 70%);
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px;
+  box-sizing: border-box;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+.wrap { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+/* cena animada de fundo: Pac-Man no tema padrão, rua à noite no noir, binário e Dalís no hacker */
+#bgfx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: none; opacity: .8; }
+:root[data-theme="padrao"] #bgfx, :root[data-theme="noir"] #bgfx, :root[data-theme="hacker"] #bgfx { display: block; }
+:root[data-theme="noir"] #bgfx { opacity: 1; }
+:root[data-theme="hacker"] #bgfx { opacity: .85; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: 1px; margin: 0; color: var(--fg); text-wrap: balance; }
+h1 span { color: var(--accent); }
+.hint { color: var(--muted); font-size: 13px; }
+
+.game {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-areas: "left board right";
+  gap: 16px;
+  align-items: start;
+}
+.side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.left { grid-area: left; align-items: flex-end; }
+.right { grid-area: right; align-items: flex-start; }
+.box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  width: 132px;
+  box-sizing: border-box;
+}
+.label { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+.box canvas { display: block; width: 100%; height: auto; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat + .stat { margin-top: 10px; }
+.val { font-family: var(--font-display); font-size: 20px; font-variant-numeric: tabular-nums; color: var(--fg); }
+.val.big { color: var(--accent); }
+
+.board-col { grid-area: board; display: flex; flex-direction: column; gap: 10px; }
+.board-wrap { position: relative; }
+/* placar embaixo do tabuleiro: "width: 0; min-width: 100%" faz ele ter a largura do tabuleiro sem esticar a coluna */
+.scorecard {
+  width: 0; min-width: 100%; box-sizing: border-box;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+}
+.score-row { display: flex; justify-content: space-between; gap: 12px; }
+.score-row .stat + .stat { margin-top: 0; }
+.score-row .right { text-align: right; }
+.score-row .val.big { font-size: 26px; }
+.hist-title { margin: 10px 0 4px; }
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); }
+.history li { display: flex; justify-content: space-between; gap: 8px; }
+.history b { font-family: var(--font-display); font-weight: 400; font-size: 12px; color: var(--fg); font-variant-numeric: tabular-nums; }
+.history .rec b { color: var(--accent); }
+#board {
+  display: block;
+  height: min(66vh, 600px);
+  aspect-ratio: 1 / 2;
+  max-width: 100%;
+  background: var(--board);
+  border: 2px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 0 0 6px var(--ring), 0 20px 50px rgba(0,0,0,.45);
+}
+.overlay {
+  position: absolute; inset: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: var(--overlay);
+  text-align: center; padding: 16px; border-radius: 3px;
+}
+.overlay[hidden] { display: none; }
+.overlay h2 { font-family: var(--font-display); font-size: 22px; margin: 0; color: var(--accent); text-wrap: balance; }
+.overlay p { margin: 0; color: var(--muted); max-width: 22ch; line-height: 1.4; }
+.btn {
+  font-family: var(--font-display); font-size: 14px; letter-spacing: 1px;
+  background: var(--accent); color: var(--on-accent); border: 0; border-radius: 4px;
+  padding: 10px 18px; cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.actions { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 230px; }
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.btn.mode {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  background: var(--panel); color: var(--fg); border: 1px solid var(--line);
+}
+.btn.mode:hover, .btn.mode.on { border-color: var(--accent); filter: none; }
+.btn.mode small { font-family: var(--font-body); font-size: 12px; letter-spacing: 0; color: var(--muted); }
+.btn:focus-visible, .pad button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.popup {
+  position: absolute; left: 0; right: 0; top: 38%;
+  text-align: center; font-family: var(--font-display); font-size: 20px; color: var(--accent);
+  pointer-events: none; opacity: 0; transform: translateY(0);
+  text-shadow: 0 2px 0 #000; white-space: pre-line;
+}
+.popup.show { animation: pop 900ms ease-out; }
+@keyframes pop { 0% { opacity: 0; transform: translateY(10px) scale(.9);} 15% { opacity: 1; transform: none;} 80% {opacity:1;} 100% { opacity: 0; transform: translateY(-24px);} }
+/* "COMBO xN" ao limpar 2+ linhas de uma vez: maior e piscando do jeito de cada tema */
+.popup.combo { font-size: 30px; }
+.popup.combo.show { animation: pop 1200ms ease-out, combo-padrao 400ms steps(4) 3; }
+@keyframes combo-padrao { 0% { color: #f2cf4a; } 25% { color: #f0647a; } 50% { color: #5ad1e6; } 75% { color: #6fd38a; } }
+[data-theme="noir"] .popup.combo.show { animation: pop 1200ms ease-out, combo-noir 180ms steps(1) 6; }
+@keyframes combo-noir { 50% { color: #000; text-shadow: 0 0 2px #fff, 0 0 10px #fff, 2px 2px 0 #fff; } }
+[data-theme="hacker"] .popup.combo.show { animation: pop 1200ms ease-out, combo-hacker 160ms steps(1) 7; }
+@keyframes combo-hacker { 50% { color: transparent; text-shadow: -3px 0 #39ff14, 3px 0 #0a3d14; } }
+
+.keys { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); }
+.keys b { display: inline-block; min-width: 46px; font-family: var(--font-display); font-weight: 400; font-size: 11px; color: var(--fg); }
+
+.pad { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pad button {
+  font-family: var(--font-display); font-size: 13px;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 0; touch-action: none; cursor: pointer;
+}
+.pad button:active { background: var(--line); }
+.pad .wide { grid-column: span 2; background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+@media (max-width: 640px), (pointer: coarse) {
+  .pad { display: grid; }
+}
+@media (max-width: 640px) {
+  .game {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "left right" "board board";
+    gap: 10px;
+  }
+  .left, .right { flex-direction: row; align-items: stretch; }
+  .left { justify-content: flex-start; } .right { justify-content: flex-end; }
+  .box { width: auto; flex: 1; padding: 8px; }
+  .box.help { display: none; }
+  .stat + .stat { margin-top: 4px; }
+  .val { font-size: 15px; }
+  .board-col { justify-self: center; }
+  #board { height: min(52vh, 560px); }
+  .score-row .val.big { font-size: 20px; }
+  h1 { font-size: 20px; }
+  .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .popup.show { animation-duration: 1ms; }
+  [data-theme="hacker"] body::after, [data-theme="hacker"] h1::after, [data-theme="hacker"] .overlay h2::after { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgfx" aria-hidden="true"></canvas>
+<div class="wrap">
+  <header>
+    <h1>Chuva de <span>Blocos</span></h1>
+    <div class="hint">Enter começa · P pausa · Esc volta ao início</div>
+  </header>
+
+  <div class="game">
+    <div class="side left">
+      <div class="box">
+        <div class="label">Guardada</div>
+        <canvas id="hold" width="120" height="80"></canvas>
+      </div>
+      <div class="box">
+        <div class="stat"><div class="label">Nível</div><div class="val" id="level">1</div></div>
+        <div class="stat"><div class="label">Linhas</div><div class="val" id="lines">0</div></div>
+      </div>
+    </div>
+
+    <div class="board-col">
+      <div class="board-wrap">
+        <canvas id="board"></canvas>
+        <div class="popup" id="popup"></div>
+        <div class="overlay" id="overlay">
+          <h2 id="ovTitle">Bem-vindo!</h2>
+          <p id="ovText">Encaixe as peças e complete linhas. A cada 10 linhas o nível sobe e tudo cai mais rápido.</p>
+          <div class="actions" id="ovActions"></div>
+        </div>
+      </div>
+      <div class="scorecard">
+        <div class="score-row">
+          <div class="stat"><div class="label">Pontos</div><div class="val big" id="score">0</div></div>
+          <div class="stat right"><div class="label">Recorde</div><div class="val" id="best">0</div></div>
+        </div>
+        <div class="label hist-title">Últimas tentativas</div>
+        <ol class="history" id="history"></ol>
+      </div>
+    </div>
+
+    <div class="side right">
+      <div class="box">
+        <div class="label">Próximas</div>
+        <canvas id="next" width="120" height="240"></canvas>
+      </div>
+      <div class="box help">
+        <div class="label">Controles</div>
+        <ul class="keys">
+          <li><b>← →</b> mover</li>
+          <li><b>↓</b> descer</li>
+          <li><b>↑ X</b> girar</li>
+          <li><b>Z</b> girar ao contrário</li>
+          <li><b>Espaço</b> derrubar</li>
+          <li><b>C</b> guardar</li>
+          <li><b>P</b> pausar</li>
+          <li><b>Esc</b> pausar / início</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad" id="pad">
+    <button type="button" id="b-hold" data-a="hold">Guardar</button>
+    <button type="button" id="b-ccw" data-a="ccw">↺</button>
+    <button type="button" id="b-cw" data-a="cw">↻</button>
+    <button type="button" id="b-pause" data-a="pause">II</button>
+    <button type="button" id="b-left" data-a="left">←</button>
+    <button type="button" id="b-down" data-a="down">↓</button>
+    <button type="button" id="b-right" data-a="right">→</button>
+    <button type="button" id="b-drop" data-a="drop">⤓</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COLS = 10, ROWS = 20;
+  // cores do que é desenhado no canvas (o resto do site vem das variáveis CSS de cada tema)
+  // pixel: desenha o tabuleiro em resolução baixa, para o visual ficar quadriculado
+  const THEMES = {
+    padrao: {
+      name: "Padrão", short: "Azul-noite e peças coloridas.",
+      pieces: { I:"#5ad1e6", O:"#f2cf4a", T:"#b57cf0", S:"#6fd38a", Z:"#f0647a", J:"#5f86f2", L:"#f29a4a" },
+      board: "#0d1124", grid: "rgba(143,151,201,.07)", flash: "#ffffff"
+    },
+    noir: {
+      name: "Noir", short: "Preto e branco, fliperama antigo.",
+      pieces: { I:"#f0f0f0", O:"#c8c8c8", T:"#a0a0a0", S:"#dcdcdc", Z:"#787878", J:"#b4b4b4", L:"#8c8c8c" },
+      board: "#050505", grid: "rgba(255,255,255,.06)", flash: "#ffffff", pixel: .34
+    },
+    hacker: {
+      name: "Hacker", short: "Verde no preto, terminal de filme.",
+      pieces: { I:"#39ff14", O:"#00d45a", T:"#7dff9a", S:"#1fbf4a", Z:"#00ff99", J:"#4caf50", L:"#a6ff4d" },
+      board: "#000000", grid: "rgba(57,255,20,.10)", flash: "#39ff14", pixel: .5
+    }
+  };
+  let theme = "padrao", COLORS = THEMES.padrao.pieces;
+  const SHAPES = {
+    I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    J:[[1,0,0],[1,1,1],[0,0,0]],
+    L:[[0,0,1],[1,1,1],[0,0,0]],
+    O:[[1,1],[1,1]],
+    S:[[0,1,1],[1,1,0],[0,0,0]],
+    T:[[0,1,0],[1,1,1],[0,0,0]],
+    Z:[[1,1,0],[0,1,1],[0,0,0]]
+  };
+  const KICKS = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0],[0,1]];
+  const LINE_PTS = [0,100,300,500,800];
+  const LINE_NAMES = ["","Simples","Dupla","Tripla","Quádrupla!"];
+  const DAS = 160, ARR = 45, SOFT = 35, LOCK = 500, MAX_RESETS = 15, CLEAR_MS = 200;
+
+  const $ = id => document.getElementById(id);
+  const board = $("board"), bctx = board.getContext("2d");
+  const holdC = $("hold"), hctx = holdC.getContext("2d");
+  const nextC = $("next"), nctx = nextC.getContext("2d");
+  const overlay = $("overlay"), ovTitle = $("ovTitle"), ovText = $("ovText"), ovActions = $("ovActions");
+  const popup = $("popup");
+
+  let grid, cur, bag, queue, hold, canHold, score, lines, level;
+  let state = "ready", mode = null, diff = null, speed = 1, dropAcc = 0, lockAcc = 0, lockResets = 0;
+  const DIFF_NAMES = { facil: "Fácil", medio: "Médio", dificil: "Difícil" };
+  // "do zero": a dificuldade multiplica a velocidade de queda
+  // "em andamento": a dificuldade muda a altura da pilha herdada (min/max/início), quantos buracos ela tem,
+  // até que profundidade eles vão e quantas linhas a partida já tinha (o que define o nível inicial)
+  const MODES = {
+    zero: {
+      name: "Do zero", short: "Tabuleiro vazio.",
+      text: "Tabuleiro vazio, nível 1. A partida é sua do primeiro bloco ao último.",
+      diffs: {
+        facil:   { short: "Tudo cai 2x mais rápido.", speed: 2 },
+        medio:   { short: "Tudo cai 4x mais rápido.", speed: 4 },
+        dificil: { short: "Tudo cai 8x mais rápido.", speed: 8 }
+      }
+    },
+    andamento: {
+      name: "Em andamento", short: "Assuma uma partida já começada.",
+      text: "Alguém começou esta partida e saiu. Você assume daqui, com os blocos e os pontos que já estão lá.",
+      diffs: {
+        facil:   { short: "Pilha baixa, poucos buracos.", minH: 2, maxH: 9, startH: 4, holes: 4, holeDepth: 3, lines: [10, 16] },
+        medio:   { short: "Pilha alta, mais buracos.", minH: 5, maxH: 11, startH: 7, holes: 10, holeDepth: 6, lines: [20, 20] },
+        dificil: { short: "Quase no topo e mal montada.", minH: 8, maxH: 14, startH: 10, holes: 20, holeDepth: 99, lines: [40, 20] }
+      }
+    }
+  };
+  let clearing = null, clearT = 0;
+  const held = { left:false, right:false, down:false };
+  let dasDir = 0, dasT = 0, arrT = 0;
+
+  let best = 0, history = [];
+  const HISTORY_MAX = 6;
+  try { best = parseInt(localStorage.getItem("chuva-best") || "0", 10) || 0; } catch (e) {}
+  try { history = JSON.parse(localStorage.getItem("chuva-historico") || "[]") || []; } catch (e) {}
+
+  // ---------- regras ----------
+  const emptyGrid = () => Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  const rand = n => Math.floor(Math.random() * n);
+  // tabuleiro de uma partida já começada: relevo irregular, alguns buracos, nenhuma linha completa
+  function midGameGrid(d){
+    const g = emptyGrid(), types = "IJLOSTZ", heights = [];
+    let h = d.startH + rand(3);
+    for (let x = 0; x < COLS; x++) {
+      h = Math.max(d.minH, Math.min(d.maxH, h + rand(5) - 2));
+      heights.push(h);
+      for (let y = ROWS - h; y < ROWS; y++) {
+        // repete a cor do vizinho às vezes, para parecer peças e não confete
+        const left = x > 0 ? g[y][x - 1] : 0;
+        g[y][x] = left && Math.random() < 0.55 ? left : types[rand(7)];
+      }
+    }
+    // buracos sempre cobertos (nunca no bloco do topo), como peças encaixadas errado
+    for (let i = 0; i < d.holes; i++) {
+      const x = rand(COLS), depth = Math.min(d.holeDepth, heights[x] - 1);
+      if (depth > 0) g[ROWS - 1 - rand(depth)][x] = 0;
+    }
+    g.forEach(row => { if (row.every(Boolean)) row[rand(COLS)] = 0; });
+    return g;
+  }
+  function shuffle(a){ for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function fromBag(){ if (!bag.length) bag = shuffle("IJLOSTZ".split("")); return bag.pop(); }
+  function rotate(m, dir){
+    const n = m.length, r = Array.from({ length: n }, () => Array(n).fill(0));
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (dir > 0) r[x][n - 1 - y] = m[y][x]; else r[n - 1 - x][y] = m[y][x];
+    }
+    return r;
+  }
+  function collide(m, px, py){
+    for (let y = 0; y < m.length; y++) for (let x = 0; x < m.length; x++) {
+      if (!m[y][x]) continue;
+      const nx = px + x, ny = py + y;
+      if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+      if (ny >= 0 && grid[ny][nx]) return true;
+    }
+    return false;
+  }
+  const gravityMs = () => Math.max(40, 1000 * Math.pow(0.8 - (level - 1) * 0.007, level - 1)) / speed;
+
+  function spawn(type){
+    if (!type) { type = queue.shift(); queue.push(fromBag()); }
+    const m = SHAPES[type].map(r => r.slice());
+    cur = { type, m, x: Math.floor((COLS - m.length) / 2), y: type === "I" ? -1 : 0 };
+    dropAcc = 0; lockAcc = 0; lockResets = 0;
+    if (collide(cur.m, cur.x, cur.y)) gameOver();
+  }
+  function grounded(){ return cur && collide(cur.m, cur.x, cur.y + 1); }
+  function onMoved(){ if (grounded() && lockResets < MAX_RESETS) { lockAcc = 0; lockResets++; } }
+  function move(dx){
+    if (!cur || clearing) return;
+    if (!collide(cur.m, cur.x + dx, cur.y)) { cur.x += dx; onMoved(); }
+  }
+  function turn(dir){
+    if (!cur || clearing || cur.type === "O") return;
+    const nm = rotate(cur.m, dir);
+    for (const [dx, dy] of KICKS) {
+      if (!collide(nm, cur.x + dx, cur.y + dy)) { cur.m = nm; cur.x += dx; cur.y += dy; onMoved(); return; }
+    }
+  }
+  function hardDrop(){
+    if (!cur || clearing) return;
+    let n = 0;
+    while (!collide(cur.m, cur.x, cur.y + 1)) { cur.y++; n++; }
+    score += 2 * n;
+    lock();
+  }
+  function holdPiece(){
+    if (!cur || clearing || !canHold) return;
+    const t = cur.type;
+    if (hold) { const h = hold; hold = t; spawn(h); } else { hold = t; spawn(); }
+    canHold = false;
+  }
+  function lock(){
+    const { m, x, y, type } = cur;
+    for (let r = 0; r < m.length; r++) for (let c = 0; c < m.length; c++) {
+      if (!m[r][c]) continue;
+      if (y + r < 0) { gameOver(); return; }
+      grid[y + r][x + c] = type;
+    }
+    cur = null;
+    const full = [];
+    grid.forEach((row, i) => { if (row.every(Boolean)) full.push(i); });
+    if (full.length) { clearing = full; clearT = 0; }
+    else { canHold = true; spawn(); }
+    hud();
+  }
+  function finishClear(){
+    const n = clearing.length;
+    grid = grid.filter((_, i) => !clearing.includes(i));
+    while (grid.length < ROWS) grid.unshift(Array(COLS).fill(0));
+    score += LINE_PTS[n] * level;
+    lines += n;
+    const newLevel = Math.floor(lines / 10) + 1;
+    const up = newLevel > level ? `Nível ${newLevel}!` : "";
+    if (n > 1) showPopup(`COMBO x${n}` + (up ? `\n${up}` : ""), true);
+    else showPopup(up || LINE_NAMES[n]);
+    level = newLevel;
+    clearing = null;
+    canHold = true;
+    spawn();
+    hud();
+  }
+
+  // ---------- estados ----------
+  // monta o tabuleiro do modo escolhido (aparece por trás da tela de "Jogar")
+  function prepare(){
+    bag = []; queue = [];
+    while (queue.length < 5) queue.push(fromBag());
+    hold = null; canHold = true; clearing = null; cur = null;
+    const d = MODES[mode].diffs[diff];
+    speed = d.speed || 1;
+    if (mode === "andamento") {
+      grid = midGameGrid(d);
+      lines = d.lines[0] + rand(d.lines[1]); level = Math.floor(lines / 10) + 1;
+      score = lines * 100 + rand(30) * 10;
+    } else {
+      grid = emptyGrid(); score = 0; lines = 0; level = 1;
+    }
+    hud();
+  }
+  function start(){
+    state = "playing";
+    overlay.hidden = true;
+    last = performance.now();
+    spawn();
+    hud();
+  }
+  function gameOver(){
+    state = "over"; cur = null;
+    const rec = score > best;
+    if (rec) { best = score; try { localStorage.setItem("chuva-best", String(best)); } catch (e) {} }
+    history.unshift({ s: score, l: lines, m: mode, d: diff, rec });
+    history = history.slice(0, HISTORY_MAX);
+    try { localStorage.setItem("chuva-historico", JSON.stringify(history)); } catch (e) {}
+    renderHistory();
+    hud();
+    showOverlay("Fim de jogo", `Você fez ${score.toLocaleString("pt-BR")} pontos e ${lines} linhas.`, [
+      { label: "Jogar de novo", action: () => { prepare(); start(); } },
+      { label: "Modos", cls: "btn ghost", action: showModes }
+    ]);
+  }
+  function togglePause(){
+    if (state === "playing") {
+      state = "paused";
+      showOverlay("Pausado", "Respira. O jogo espera por você.", [
+        { label: "Continuar", action: togglePause },
+        { label: "Voltar ao início", cls: "btn ghost", action: goHome }
+      ]);
+    }
+    else if (state === "paused") { state = "playing"; overlay.hidden = true; last = performance.now(); }
+  }
+
+  // abandona a partida (não entra no histórico) e volta para a tela de boas-vindas
+  function goHome(){
+    cur = null; clearing = null;
+    showWelcome();
+  }
+
+  // ---------- telas do menu ----------
+  function showWelcome(){
+    state = "ready";
+    showOverlay("Bem-vindo!", "Encaixe as peças e complete linhas. A cada 10 linhas o nível sobe e tudo cai mais rápido.", [
+      { label: "Modos", action: showModes },
+      { label: "Configurações", cls: "btn ghost", action: showSettings }
+    ]);
+  }
+  function showSettings(){
+    state = "menu";
+    showOverlay("Configurações", "Ajuste o jogo do seu jeito.", [
+      { label: "Temas", sub: "Cores do jogo.", cls: "btn mode", action: showThemes },
+      { label: "Voltar", cls: "btn ghost", action: showWelcome }
+    ]);
+  }
+  function showThemes(){
+    state = "menu";
+    showOverlay("Temas", "O tema muda só as cores. Fica salvo para a próxima vez.", [
+      ...Object.entries(THEMES).map(([id, t]) => ({
+        label: t.name, sub: id === theme ? "Em uso" : t.short, cls: "btn mode" + (id === theme ? " on" : ""),
+        action: () => { applyTheme(id); showThemes(); }
+      })),
+      { label: "Voltar", cls: "btn ghost", action: showSettings }
+    ]);
+  }
+  function applyTheme(id){
+    if (!THEMES[id]) id = "padrao";
+    theme = id;
+    COLORS = THEMES[id].pieces;
+    document.documentElement.dataset.theme = id;
+    if (id === "hacker" && !reduceMotion) hkT = 0; // o roteiro do hacker sempre começa do binário
+    try { localStorage.setItem("chuva-tema", id); } catch (e) {}
+    fitBoard();
+  }
+  function showModes(){
+    state = "menu";
+    showOverlay("Modos", "Escolha como quer começar.", [
+      ...Object.entries(MODES).map(([id, m]) => ({ label: m.name, sub: m.short, cls: "btn mode", action: () => pickMode(id) })),
+      { label: "Voltar", cls: "btn ghost", action: showWelcome }
+    ]);
+  }
+  function pickMode(id){
+    mode = id;
+    state = "menu";
+    showOverlay(MODES[id].name, MODES[id].text + " Escolha a dificuldade.", [
+      ...Object.entries(MODES[id].diffs).map(([d, cfg]) => ({ label: DIFF_NAMES[d], sub: cfg.short, cls: "btn mode", action: () => pickDiff(d) })),
+      { label: "Voltar", cls: "btn ghost", action: showModes }
+    ]);
+  }
+  function pickDiff(d){
+    diff = d;
+    state = "ready";
+    prepare();
+    showOverlay(`${MODES[mode].name} · ${DIFF_NAMES[d]}`, MODES[mode].diffs[d].short + " Pronto quando você estiver.", [
+      { label: "Jogar", action: start },
+      { label: "Trocar dificuldade", cls: "btn ghost", action: () => pickMode(mode) }
+    ]);
+  }
+  function showOverlay(t, txt, buttons){
+    ovTitle.textContent = t; ovText.textContent = txt;
+    ovActions.replaceChildren(...buttons.map(b => {
+      const el = document.createElement("button");
+      el.type = "button"; el.className = b.cls || "btn"; el.textContent = b.label;
+      if (b.sub) { const s = document.createElement("small"); s.textContent = b.sub; el.append(s); }
+      el.addEventListener("click", () => { el.blur(); b.action(); });
+      return el;
+    }));
+    overlay.hidden = false;
+  }
+
+  function showPopup(text, combo){
+    if (!text) return;
+    popup.textContent = text;
+    popup.classList.toggle("combo", !!combo);
+    popup.classList.remove("show"); void popup.offsetWidth; popup.classList.add("show");
+  }
+  // histórico das últimas partidas (a mais recente em cima); recordes batidos ganham ★
+  function renderHistory(){
+    const list = $("history");
+    if (!history.length) {
+      const li = document.createElement("li"); li.textContent = "Nenhuma partida ainda.";
+      list.replaceChildren(li); return;
+    }
+    list.replaceChildren(...history.map(h => {
+      const li = document.createElement("li");
+      if (h.rec) li.className = "rec";
+      const pts = document.createElement("span"), b = document.createElement("b");
+      b.textContent = h.s.toLocaleString("pt-BR") + (h.rec ? " ★" : "");
+      pts.append(b);
+      const info = document.createElement("span");
+      info.textContent = `${MODES[h.m] ? MODES[h.m].name : ""} · ${DIFF_NAMES[h.d] || ""} · ${h.l} lin`;
+      li.append(pts, info);
+      return li;
+    }));
+  }
+  function hud(){
+    $("score").textContent = score.toLocaleString("pt-BR");
+    $("level").textContent = level;
+    $("lines").textContent = lines;
+    $("best").textContent = (state === "playing" ? Math.max(best, score) : best).toLocaleString("pt-BR");
+  }
+
+  // ---------- entrada ----------
+  function press(a){
+    if (a === "pause") { togglePause(); return; }
+    if (state !== "playing") return;
+    switch (a) {
+      case "left": held.left = true; move(-1); dasDir = -1; dasT = 0; arrT = 0; break;
+      case "right": held.right = true; move(1); dasDir = 1; dasT = 0; arrT = 0; break;
+      case "down": held.down = true; dropAcc = SOFT; break;
+      case "cw": turn(1); break;
+      case "ccw": turn(-1); break;
+      case "drop": hardDrop(); break;
+      case "hold": holdPiece(); break;
+    }
+  }
+  function release(a){
+    if (a === "left" || a === "right") {
+      held[a] = false;
+      if ((a === "left" && dasDir === -1) || (a === "right" && dasDir === 1)) {
+        dasDir = held.left ? -1 : held.right ? 1 : 0; dasT = 0; arrT = 0;
+      }
+    }
+    if (a === "down") held.down = false;
+  }
+  const KEYMAP = {
+    ArrowLeft:"left", ArrowRight:"right", ArrowDown:"down", ArrowUp:"cw",
+    KeyX:"cw", KeyZ:"ccw", Space:"drop", KeyC:"hold", ShiftLeft:"hold", ShiftRight:"hold",
+    KeyP:"pause", Escape:"pause"
+  };
+  document.addEventListener("keydown", e => {
+    // Enter aciona o botão em foco no menu, ou o primeiro botão da tela
+    if (e.code === "Enter" && !overlay.hidden) {
+      e.preventDefault();
+      const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest("#ovActions button");
+      (focused || ovActions.querySelector("button"))?.click();
+      return;
+    }
+    // Esc: jogando pausa (com a opção "Voltar ao início"); pausado retoma; em qualquer menu volta ao início
+    if (e.code === "Escape" && state !== "playing" && state !== "paused") { e.preventDefault(); goHome(); return; }
+    const a = KEYMAP[e.code];
+    if (!a) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    press(a);
+  });
+  document.addEventListener("keyup", e => { const a = KEYMAP[e.code]; if (a) release(a); });
+  window.addEventListener("blur", () => { held.left = held.right = held.down = false; dasDir = 0; if (state === "playing") togglePause(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden && state === "playing") togglePause(); });
+
+  document.querySelectorAll("#pad button").forEach(b => {
+    const a = b.dataset.a;
+    b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); press(a); });
+    const up = () => release(a);
+    b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up);
+  });
+
+  // ---------- desenho ----------
+  let cell = 30, holdRatio = 2 / 3, nextRatio = 2, nextCount = 4;
+  function fitBoard(){
+    const narrow = window.matchMedia("(max-width: 640px)").matches;
+    holdRatio = narrow ? 0.6 : 2 / 3; nextRatio = narrow ? 0.6 : 2; nextCount = narrow ? 2 : 4;
+    const dpr = window.devicePixelRatio || 1;
+    const w = board.clientWidth, h = board.clientHeight;
+    const bdpr = THEMES[theme].pixel || dpr; // temas pixelados desenham em resolução mais baixa
+    board.width = Math.round(w * bdpr); board.height = Math.round(h * bdpr);
+    bctx.setTransform(bdpr, 0, 0, bdpr, 0, 0);
+    cell = w / COLS;
+    for (const [c, ctx] of [[holdC, hctx], [nextC, nctx]]) {
+      const cw = c.clientWidth || 120, ch = cw * (c === holdC ? holdRatio : nextRatio);
+      c.width = Math.round(cw * bdpr); c.height = Math.round(ch * bdpr);
+      c.style.height = ch + "px";
+      ctx.setTransform(bdpr, 0, 0, bdpr, 0, 0);
+    }
+  }
+  if (window.ResizeObserver) new ResizeObserver(fitBoard).observe(board);
+  window.addEventListener("resize", fitBoard);
+
+  function shade(hex, amt){
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) + amt, g = ((n >> 8) & 255) + amt, b = (n & 255) + amt;
+    r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+    return `rgb(${r},${g},${b})`;
+  }
+  function block(ctx, x, y, s, color){
+    const p = Math.max(1, s * 0.12);
+    ctx.fillStyle = shade(color, -55); ctx.fillRect(x, y, s, s);
+    ctx.fillStyle = color; ctx.fillRect(x + 1, y + 1, s - 2, s - p - 1);
+    ctx.fillStyle = shade(color, 45); ctx.fillRect(x + 1, y + 1, s - 2, p);
+    ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(x + p + 1, y + p + 1, p, p);
+  }
+  function drawBoard(){
+    const w = cell * COLS, h = cell * ROWS;
+    bctx.fillStyle = THEMES[theme].board; bctx.fillRect(0, 0, w, h);
+    bctx.strokeStyle = THEMES[theme].grid; bctx.lineWidth = 1;
+    bctx.beginPath();
+    for (let x = 1; x < COLS; x++) { bctx.moveTo(x * cell + .5, 0); bctx.lineTo(x * cell + .5, h); }
+    for (let y = 1; y < ROWS; y++) { bctx.moveTo(0, y * cell + .5); bctx.lineTo(w, y * cell + .5); }
+    bctx.stroke();
+    if (!grid) return;
+
+    const flash = clearing ? (Math.floor(clearT / 50) % 2 === 0) : false;
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (!t) continue;
+      if (clearing && clearing.includes(y)) {
+        bctx.fillStyle = flash ? THEMES[theme].flash : shade(COLORS[t], 60);
+        bctx.fillRect(x * cell, y * cell, cell, cell);
+      } else block(bctx, x * cell, y * cell, cell, COLORS[t]);
+    }
+    if (!cur) return;
+    // fantasma
+    let gy = cur.y;
+    while (!collide(cur.m, cur.x, gy + 1)) gy++;
+    bctx.strokeStyle = COLORS[cur.type]; bctx.globalAlpha = .45; bctx.lineWidth = 2;
+    eachCell(cur.m, (c, r) => { const yy = gy + r; if (yy >= 0) bctx.strokeRect((cur.x + c) * cell + 2, yy * cell + 2, cell - 4, cell - 4); });
+    bctx.globalAlpha = 1;
+    eachCell(cur.m, (c, r) => { const yy = cur.y + r; if (yy >= 0) block(bctx, (cur.x + c) * cell, yy * cell, cell, COLORS[cur.type]); });
+  }
+  function eachCell(m, fn){ for (let r = 0; r < m.length; r++) for (let c = 0; c < m.length; c++) if (m[r][c]) fn(c, r); }
+  function mini(ctx, type, cx, cy, s, dim){
+    const m = SHAPES[type];
+    let minX = 9, maxX = -1, minY = 9, maxY = -1;
+    eachCell(m, (c, r) => { minX = Math.min(minX, c); maxX = Math.max(maxX, c); minY = Math.min(minY, r); maxY = Math.max(maxY, r); });
+    const ox = cx - ((maxX - minX + 1) * s) / 2, oy = cy - ((maxY - minY + 1) * s) / 2;
+    ctx.globalAlpha = dim ? .35 : 1;
+    eachCell(m, (c, r) => block(ctx, ox + (c - minX) * s, oy + (r - minY) * s, s, COLORS[type]));
+    ctx.globalAlpha = 1;
+  }
+  function drawSide(){
+    const hw = holdC.clientWidth || 120, hh = hw * holdRatio;
+    hctx.clearRect(0, 0, hw, hh);
+    if (hold) mini(hctx, hold, hw / 2, hh / 2, Math.min(hw / 6, hh / 3), !canHold);
+    const nw = nextC.clientWidth || 120, nh = nw * nextRatio;
+    nctx.clearRect(0, 0, nw, nh);
+    if (queue) {
+      if (nextCount === 2) queue.slice(0, 2).forEach((t, i) => mini(nctx, t, nw * (i + .5) / 2, nh / 2, Math.min(nw / 10, nh / 3), i > 0));
+      else queue.slice(0, 4).forEach((t, i) => mini(nctx, t, nw / 2, nh * (i + .5) / 4, i === 0 ? nw / 6 : nw / 7.5, false));
+    }
+  }
+
+  // ---------- fundo do tema padrão: um Pac-Man que joga sozinho, para sempre ----------
+  // Labirinto em grade de tiles, gerado do tamanho da tela e espelhado como o do jogo original.
+  // O Pac-Man sempre vai atrás da bolinha mais perto e desvia dos fantasmas; os fantasmas
+  // rondam mas nunca chegam a menos de 3 tiles dele. A cada 5 bolinhas comidas, 1 volta
+  // num corredor vazio longe dele (como a maçã do jogo da cobrinha).
+  const fx = $("bgfx"), fctx = fx.getContext("2d");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const PAC_SPEED = 5.5, GHOST_SPEED = 5, SCARED_SPEED = 3; // tiles por segundo
+  const RESPAWN_EVERY = 5, FRIGHT_MS = 6000, FRUIT_MS = 12000;
+  const GHOST_COLORS = ["#f2432c", "#4cc46a", "#f7941d", "#f06aa8"];
+  let fxW = 0, fxH = 0, T = 28, MW = 0, MH = 0, ox = 0, oy = 0;
+  let walls = [], dots = [], dotAt = [], wallLayer = null;
+  let pac = null, ghosts = [], fruit = null, eaten = 0, frightT = 0, fruitT = 0, dripT = 0, fxClock = 0;
+
+  const isWall = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || walls[y * MW + x];
+  const tileDist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+  // labirinto: busca em profundidade na metade esquerda, depois tira os becos sem saída,
+  // abre algumas paredes a mais (para ter voltas, como no Pac-Man) e espelha para a direita.
+  // Largura MW ≡ 3 (mod 4) para que a coluna do meio seja de corredor e as metades se liguem.
+  function genMaze(){
+    walls = Array(MW * MH).fill(true);
+    const m = (MW - 1) / 2;
+    const open = (x, y) => { walls[y * MW + (x > m ? MW - 1 - x : x)] = false; };
+    const isOpen = (x, y) => !walls[y * MW + (x > m ? MW - 1 - x : x)];
+    const inCells = (x, y) => x >= 1 && x <= MW - 2 && y >= 1 && y <= MH - 2;
+    const stack = [[1, 1]]; open(1, 1);
+    while (stack.length) {
+      const [x, y] = stack[stack.length - 1];
+      const next = shuffle(DIRS.slice()).map(([dx, dy]) => [x + dx * 2, y + dy * 2, x + dx, y + dy])
+        .find(([nx, ny]) => nx <= m && inCells(nx, ny) && !isOpen(nx, ny));
+      if (!next) { stack.pop(); continue; }
+      open(next[2], next[3]); open(next[0], next[1]); stack.push([next[0], next[1]]);
+    }
+    for (let y = 1; y < MH - 1; y += 2) for (let x = 1; x <= m; x += 2) {
+      if (DIRS.filter(([dx, dy]) => isOpen(x + dx, y + dy)).length > 1) continue;
+      const knock = shuffle(DIRS.slice()).find(([dx, dy]) => inCells(x + dx * 2, y + dy * 2) && !isOpen(x + dx, y + dy));
+      if (knock) open(x + knock[0], y + knock[1]);
+    }
+    for (let y = 1; y < MH - 1; y++) for (let x = 1; x <= m; x++) {
+      if ((x + y) % 2 === 1 && Math.random() < 0.1) open(x, y);
+    }
+    for (let y = 0; y < MH; y++) for (let x = m + 1; x < MW; x++) walls[y * MW + x] = walls[y * MW + MW - 1 - x];
+  }
+
+  // paredes desenhadas uma vez só numa camada à parte: barras grossas arredondadas com contorno
+  function drawWalls(dpr){
+    wallLayer = document.createElement("canvas");
+    wallLayer.width = fx.width; wallLayer.height = fx.height;
+    const w = wallLayer.getContext("2d"), path = new Path2D();
+    w.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      if (!isWall(x, y)) continue;
+      const cx = ox + (x + .5) * T, cy = oy + (y + .5) * T;
+      const right = x + 1 < MW && isWall(x + 1, y), down = y + 1 < MH && isWall(x, y + 1);
+      if (right) { path.moveTo(cx, cy); path.lineTo(cx + T, cy); }
+      if (down) { path.moveTo(cx, cy); path.lineTo(cx, cy + T); }
+      if (!right && !down && !(x > 0 && isWall(x - 1, y)) && !(y > 0 && isWall(x, y - 1))) { path.moveTo(cx, cy); path.lineTo(cx + .01, cy); }
+    }
+    w.lineCap = "round"; w.lineJoin = "round";
+    for (const [width, color] of [[.52, "#4a3fc4"], [.38, "#0e0b38"], [.3, "#3a2fa8"]]) {
+      w.lineWidth = T * width; w.strokeStyle = color; w.stroke(path);
+    }
+  }
+
+  function buildFx(){
+    const dpr = window.devicePixelRatio || 1;
+    fxW = window.innerWidth; fxH = window.innerHeight;
+    fx.width = Math.round(fxW * dpr); fx.height = Math.round(fxH * dpr);
+    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    T = fxW < 640 ? 24 : 28;
+    MW = Math.floor(fxW / T); MW = Math.max(7, MW - (((MW - 3) % 4) + 4) % 4);
+    MH = Math.floor(fxH / T); MH = Math.max(7, MH % 2 ? MH : MH - 1);
+    ox = (fxW - MW * T) / 2; oy = (fxH - MH * T) / 2;
+    genMaze();
+    drawWalls(dpr);
+    // bolinhas em todo corredor que não fica escondido atrás do tabuleiro ou dos painéis
+    const covered = [...document.querySelectorAll("#board, .box, .pad")].map(el => el.getBoundingClientRect()).filter(r => r.width);
+    dots = []; dotAt = Array(MW * MH).fill(null);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      if (isWall(x, y)) continue;
+      const cx = ox + (x + .5) * T, cy = oy + (y + .5) * T;
+      if (covered.some(r => cx > r.left - T / 2 && cx < r.right + T / 2 && cy > r.top - T / 2 && cy < r.bottom + T / 2)) continue;
+      const d = { x, y, on: true, born: -1e9, power: false };
+      dots.push(d); dotAt[y * MW + x] = d;
+    }
+    if (!dots.length) return;
+    // pílulas de poder perto dos quatro cantos
+    for (const [fx_, fy_] of [[.08, .12], [.92, .12], [.08, .88], [.92, .88]]) {
+      const target = { x: fx_ * MW, y: fy_ * MH };
+      dots.reduce((a, b) => tileDist(a, target) <= tileDist(b, target) ? a : b).power = true;
+    }
+    const start = dots[rand(dots.length)];
+    pac = { x: start.x, y: start.y, dir: [0, 0], p: 0, face: 0 };
+    start.on = false;
+    const far = dots.filter(d => tileDist(d, pac) >= 10);
+    ghosts = GHOST_COLORS.map(color => {
+      const s = (far.length ? far : dots)[rand(far.length || dots.length)];
+      return { x: s.x, y: s.y, dir: [0, 0], p: 0, color };
+    });
+    eaten = 0; fruit = null; frightT = 0; fruitT = 0; dripT = 0;
+  }
+
+  // volta 1 bolinha num lugar vazio, de preferência longe do Pac-Man
+  function respawnOne(){
+    const off = dots.filter(d => !d.on);
+    if (!off.length) return;
+    const far = off.filter(d => tileDist(d, pac) >= 8), pool = far.length ? far : off;
+    const d = pool[rand(pool.length)];
+    d.on = true; d.born = fxClock;
+  }
+  function eatAt(x, y){
+    const d = dotAt[y * MW + x];
+    if (d && d.on) {
+      d.on = false;
+      if (d.power) frightT = FRIGHT_MS;
+      if (++eaten % RESPAWN_EVERY === 0) respawnOne();
+    }
+    if (fruit && fruit.x === x && fruit.y === y) fruit = null;
+  }
+
+  // Pac-Man: caminho mais curto até a bolinha (ou cereja) mais perto, evitando os fantasmas
+  function pacChoose(e){
+    const danger = new Set();
+    if (frightT <= 0) for (const g of ghosts) {
+      for (const [dx, dy] of [[0, 0], ...DIRS]) danger.add((g.y + dy) * MW + g.x + dx);
+      danger.add((g.y + g.dir[1]) * MW + g.x + g.dir[0]);
+    }
+    const dir = findPath(e, danger) || findPath(e, null);
+    if (dir) { e.dir = dir; return; }
+    const opts = DIRS.filter(([dx, dy]) => !isWall(e.x + dx, e.y + dy));
+    e.dir = opts.length ? opts[rand(opts.length)] : [0, 0];
+  }
+  function findPath(e, danger){
+    const start = e.y * MW + e.x, seen = new Uint8Array(MW * MH), first = [];
+    const queue = [start]; seen[start] = 1;
+    for (let i = 0; i < queue.length; i++) {
+      const idx = queue[i];
+      if (idx !== start && ((dotAt[idx] && dotAt[idx].on) || (fruit && fruit.y * MW + fruit.x === idx))) return first[idx];
+      const x = idx % MW, y = (idx - x) / MW;
+      for (const d of DIRS) {
+        const nx = x + d[0], ny = y + d[1], ni = ny * MW + nx;
+        if (isWall(nx, ny) || seen[ni] || (danger && danger.has(ni))) continue;
+        seen[ni] = 1; first[ni] = idx === start ? d : first[idx]; queue.push(ni);
+      }
+    }
+    return null;
+  }
+  // fantasmas: não voltam para trás à toa, metade das vezes vão na direção do Pac-Man,
+  // mas nunca escolhem um tile a menos de 3 dele; assustados, fogem
+  function ghostChoose(g){
+    const dist = ([dx, dy]) => Math.abs(g.x + dx - pac.x) + Math.abs(g.y + dy - pac.y);
+    let opts = DIRS.filter(([dx, dy]) => !isWall(g.x + dx, g.y + dy));
+    const safe = opts.filter(d => dist(d) >= 3); if (safe.length) opts = safe;
+    const fwd = opts.filter(([dx, dy]) => dx !== -g.dir[0] || dy !== -g.dir[1]); if (fwd.length) opts = fwd;
+    if (frightT > 0) opts.sort((a, b) => dist(b) - dist(a));
+    else if (Math.random() < .5) opts.sort((a, b) => dist(a) - dist(b));
+    else shuffle(opts);
+    g.dir = opts[0] || [0, 0];
+  }
+  function step(e, tiles, choose){
+    if (!e.dir[0] && !e.dir[1]) choose(e);
+    if (!e.dir[0] && !e.dir[1]) return;
+    e.p += tiles;
+    while (e.p >= 1) {
+      e.p -= 1; e.x += e.dir[0]; e.y += e.dir[1];
+      if (e === pac) eatAt(e.x, e.y);
+      choose(e);
+      if (!e.dir[0] && !e.dir[1]) { e.p = 0; break; }
+    }
+  }
+
+  function updateFx(dt){
+    if (reduceMotion || !pac) return;
+    fxClock += dt;
+    frightT = Math.max(0, frightT - dt);
+    step(pac, PAC_SPEED * dt / 1000, pacChoose);
+    for (const g of ghosts) step(g, (frightT > 0 ? SCARED_SPEED : GHOST_SPEED) * dt / 1000, ghostChoose);
+    fruitT += dt;
+    if (!fruit && fruitT > FRUIT_MS) {
+      fruitT = 0;
+      const spots = dots.filter(d => !d.on && tileDist(d, pac) >= 6);
+      if (spots.length) { const s = spots[rand(spots.length)]; fruit = { x: s.x, y: s.y }; }
+    }
+    // reserva: se o labirinto esvaziar demais, volta 1 bolinha a cada 0,8 s para nunca acabar
+    if (dots.filter(d => d.on).length < dots.length * 0.4) {
+      dripT += dt;
+      if (dripT > 800) { dripT = 0; respawnOne(); }
+    }
+  }
+
+  const tileX = e => ox + (e.x + e.dir[0] * e.p + .5) * T;
+  const tileY = e => oy + (e.y + e.dir[1] * e.p + .5) * T;
+  function drawFx(){
+    fctx.fillStyle = "#000"; fctx.fillRect(0, 0, fxW, fxH);
+    if (!wallLayer) return;
+    fctx.drawImage(wallLayer, 0, 0, fxW, fxH);
+    for (const d of dots) {
+      if (!d.on) continue;
+      // bolinha que acabou de voltar cresce com um pulinho
+      const k = Math.min(1, (fxClock - d.born) / 350);
+      const s = k < 1 ? Math.sin(k * Math.PI / 2) * (1 + .5 * Math.sin(k * Math.PI)) : 1;
+      const cx = ox + (d.x + .5) * T, cy = oy + (d.y + .5) * T;
+      if (d.power) drawPill(cx, cy, s * (1 + .12 * Math.sin(fxClock / 160)));
+      else { fctx.fillStyle = "#f5873b"; fctx.beginPath(); fctx.arc(cx, cy, T * .09 * s, 0, Math.PI * 2); fctx.fill(); }
+    }
+    if (fruit) drawCherry(ox + (fruit.x + .5) * T, oy + (fruit.y + .5) * T);
+    if (!pac) return;
+    for (const g of ghosts) drawGhost(tileX(g), tileY(g), g.dir, g.color);
+    drawPac(tileX(pac), tileY(pac), pac);
+  }
+  function drawPac(x, y, e){
+    const r = T * .42, mouth = (0.04 + 0.22 * Math.abs(Math.sin(fxClock / 80))) * Math.PI;
+    if (e.dir[0] || e.dir[1]) e.face = e.dir;
+    const [dx, dy] = e.face || [1, 0];
+    fctx.save(); fctx.translate(x, y);
+    // virado para a esquerda espelha em vez de girar, para o olho continuar em cima
+    if (dx < 0) fctx.scale(-1, 1); else fctx.rotate(Math.atan2(dy, dx));
+    fctx.fillStyle = "#ffcc1a";
+    fctx.beginPath(); fctx.moveTo(0, 0); fctx.arc(0, 0, r, mouth, Math.PI * 2 - mouth); fctx.closePath(); fctx.fill();
+    fctx.fillStyle = "#111";
+    fctx.beginPath(); fctx.arc(r * .1, -r * .5, r * .12, 0, Math.PI * 2); fctx.fill();
+    fctx.restore();
+  }
+  function drawGhost(x, y, [dx, dy], color){
+    const r = T * .4, scared = frightT > 0;
+    // assustado: azul, piscando em branco quando o efeito está acabando
+    fctx.fillStyle = !scared ? color : frightT < 2000 && Math.floor(fxClock / 200) % 2 ? "#ffffff" : "#2b3bd6";
+    fctx.beginPath();
+    fctx.arc(x, y - r * .15, r, Math.PI, 0);
+    const base = y + r * .85, w = (r * 2) / 3;
+    fctx.lineTo(x + r, base);
+    for (let i = 0; i < 3; i++) { const x0 = x + r - i * w; fctx.quadraticCurveTo(x0 - w / 2, base - r * .45, x0 - w, base); }
+    fctx.closePath(); fctx.fill();
+    if (scared) {
+      fctx.fillStyle = "#ffd9b8";
+      fctx.fillRect(x - r * .4, y - r * .3, r * .22, r * .22); fctx.fillRect(x + r * .18, y - r * .3, r * .22, r * .22);
+      return;
+    }
+    for (const side of [-1, 1]) {
+      const ex = x + side * r * .36, ey = y - r * .12;
+      fctx.fillStyle = "#fff";
+      fctx.beginPath(); fctx.ellipse(ex, ey, r * .26, r * .3, 0, 0, Math.PI * 2); fctx.fill();
+      fctx.fillStyle = "#111";
+      fctx.beginPath(); fctx.arc(ex + dx * r * .1, ey + dy * r * .1 + r * .05, r * .13, 0, Math.PI * 2); fctx.fill();
+      // sobrancelha brava, como na imagem de referência
+      fctx.strokeStyle = "#111"; fctx.lineWidth = Math.max(1.5, r * .14); fctx.lineCap = "round";
+      fctx.beginPath(); fctx.moveTo(x + side * r * .62, ey - r * .42); fctx.lineTo(x + side * r * .14, ey - r * .26); fctx.stroke();
+    }
+  }
+  function drawPill(x, y, s){
+    const len = T * .5 * s, wid = T * .24 * s;
+    fctx.save(); fctx.translate(x, y); fctx.rotate(-Math.PI / 4);
+    fctx.fillStyle = "#e8402c";
+    fctx.beginPath(); fctx.arc(-len / 2 + wid / 2, 0, wid / 2, Math.PI / 2, Math.PI * 1.5); fctx.lineTo(0, -wid / 2); fctx.lineTo(0, wid / 2); fctx.closePath(); fctx.fill();
+    fctx.fillStyle = "#ffffff";
+    fctx.beginPath(); fctx.arc(len / 2 - wid / 2, 0, wid / 2, -Math.PI / 2, Math.PI / 2); fctx.lineTo(0, wid / 2); fctx.lineTo(0, -wid / 2); fctx.closePath(); fctx.fill();
+    fctx.restore();
+  }
+  function drawCherry(x, y){
+    const k = T / 28;
+    fctx.strokeStyle = "#4caf50"; fctx.lineWidth = 1.6 * k; fctx.lineCap = "round";
+    fctx.beginPath();
+    fctx.moveTo(x - 5 * k, y + 2 * k); fctx.quadraticCurveTo(x - 1 * k, y - 7 * k, x + 4 * k, y - 9 * k);
+    fctx.moveTo(x + 5 * k, y + 2 * k); fctx.lineTo(x + 4 * k, y - 9 * k);
+    fctx.stroke();
+    fctx.fillStyle = "#e8302c";
+    fctx.beginPath(); fctx.arc(x - 5 * k, y + 5 * k, 4.5 * k, 0, Math.PI * 2); fctx.arc(x + 5 * k, y + 5 * k, 4.5 * k, 0, Math.PI * 2); fctx.fill();
+  }
+  // refaz o labirinto quando a janela muda de tamanho (esperando o redimensionamento terminar)
+  let fxResize = 0;
+  window.addEventListener("resize", () => { clearTimeout(fxResize); fxResize = setTimeout(() => { buildFx(); buildNoir(); buildHacker(); }, 200); });
+  buildFx();
+
+  // ---------- fundo do tema noir: uma rua à noite com um detetive andando ----------
+  // O cenário parado (céu, lua, árvores, calçada, postes e bancos) é desenhado uma vez numa camada;
+  // a cada quadro entram os pombos, o detetive e por cima a luz dos postes (somada, em "lighter").
+  // O detetive anda de um lado pro outro e, ao passar por um banco, às vezes senta um pouco.
+  // Visual de fliperama antigo: tudo é desenhado num canvas de baixa resolução (cada pixel vira
+  // NOIR_PIX×NOIR_PIX na tela, sem suavizar) e, no fim de cada quadro, reduzido a 8 tons de cinza com
+  // pontilhado ordenado (dithering), como nos jogos antigos. Postes e bancos têm tamanho fixo em px
+  // para ficarem na escala do detetive (desenhado por cima, com pixels de DET_PX px).
+  const NOIR_WALK = 48, SIT_CHANCE = .4, NOIR_PIX = 3; // px por segundo; chance de sentar em cada banco; tamanho do pixel
+  const NOIR_LEVELS = [0, 14, 30, 52, 82, 122, 178, 240];
+  const NOIR_LUT = Array.from({ length: 256 }, (_, v) => NOIR_LEVELS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a));
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v / 16 - .5) * 22);
+  let noirLayer = null, noirPix = null, nc = null, footY = 0, ns = 1, lamps = [], benches = [], pigeons = [], det = null;
+  const circle = (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); };
+
+  function buildNoir(){
+    ns = Math.max(.7, Math.min(1.2, fxH / 900));
+    const groundY = Math.round(fxH - Math.max(80, fxH * .15));
+    footY = Math.round((groundY + 8 * ns) / NOIR_PIX) * NOIR_PIX;
+    const lowW = Math.ceil(fxW / NOIR_PIX), lowH = Math.ceil(fxH / NOIR_PIX);
+    noirPix = document.createElement("canvas"); noirPix.width = lowW; noirPix.height = lowH;
+    nc = noirPix.getContext("2d", { willReadFrequently: true });
+    noirLayer = document.createElement("canvas"); noirLayer.width = lowW; noirLayer.height = lowH;
+    const c = noirLayer.getContext("2d");
+    c.setTransform(1 / NOIR_PIX, 0, 0, 1 / NOIR_PIX, 0, 0);
+
+    // céu em faixas, como nos jogos antigos
+    const bands = ["#000000", "#050505", "#0a0a0a", "#101010", "#161616", "#1c1c1c"];
+    bands.forEach((col, i) => { c.fillStyle = col; c.fillRect(0, groundY * i / bands.length, fxW, groundY / bands.length + NOIR_PIX); });
+    c.fillStyle = "rgba(255,255,255,.55)";
+    for (let i = 0; i < fxW * fxH / 12000; i++) c.fillRect(Math.random() * fxW, Math.random() * groundY * .6, NOIR_PIX, NOIR_PIX);
+
+    // lua cheia no canto de cima à direita, com halo em anéis chapados
+    const mr = 42 * ns, mx = fxW - Math.max(70, fxW * .08), my = Math.max(70, fxH * .11);
+    c.fillStyle = "rgba(255,255,255,.04)"; circle(c, mx, my, mr * 3);
+    c.fillStyle = "rgba(255,255,255,.05)"; circle(c, mx, my, mr * 2);
+    c.fillStyle = "rgba(255,255,255,.07)"; circle(c, mx, my, mr * 1.4);
+    c.fillStyle = "#e6e6e6"; circle(c, mx, my, mr);
+    c.fillStyle = "rgba(0,0,0,.09)";
+    for (const [dx, dy, r] of [[-.3, -.2, .22], [.25, .15, .16], [-.05, .4, .12], [.35, -.35, .1], [-.4, .3, .09]]) circle(c, mx + dx * mr, my + dy * mr, r * mr);
+
+    // árvores bem ao fundo, só silhuetas
+    for (let x = -20; x < fxW + 40; x += (40 + Math.random() * 70) * ns) {
+      const h = (90 + Math.random() * 90) * ns, w = (24 + Math.random() * 22) * ns, g = 13 + rand(9);
+      c.fillStyle = `rgb(${g},${g},${g})`;
+      c.fillRect(x - 3 * ns, groundY - h * .45, 6 * ns, h * .45);
+      circle(c, x, groundY - h * .55, w); circle(c, x - w * .6, groundY - h * .4, w * .75);
+      circle(c, x + w * .6, groundY - h * .42, w * .7); circle(c, x, groundY - h * .8, w * .7);
+    }
+
+    // calçada, meio-fio e asfalto com faixa tracejada
+    const curb = groundY + 14 * ns;
+    c.fillStyle = "#1c1c1c"; c.fillRect(0, groundY, fxW, 14 * ns);
+    c.fillStyle = "#151515"; for (let x = 0; x < fxW; x += 48 * ns) c.fillRect(x, groundY, 1, 14 * ns);
+    c.fillStyle = "#2c2c2c"; c.fillRect(0, groundY, fxW, 2);
+    c.fillStyle = "#353535"; c.fillRect(0, curb, fxW, 3 * ns);
+    c.fillStyle = "#0b0b0b"; c.fillRect(0, curb + 3 * ns, fxW, fxH);
+    c.fillStyle = "#333";
+    const laneY = (curb + fxH) / 2;
+    for (let x = 10; x < fxW; x += 70) c.fillRect(x, laneY, 36, 3);
+
+    // postes: braço para um lado ou para o outro, alternando
+    // postes: braço para um lado ou para o outro, alternando (tamanho fixo, na escala do detetive)
+    lamps = [];
+    const gap = 380, P = NOIR_PIX;
+    for (let x = gap * (.35 + Math.random() * .3), i = 0; x < fxW + 20; x += gap, i++) {
+      const side = i % 2 ? -1 : 1, top = footY - 330;
+      const l = { x, hx: x + side * 39, hy: top + 15, flickT: 0, k: 1 };
+      lamps.push(l);
+      c.fillStyle = "#3a3a3a";
+      c.fillRect(x - P, top, 2 * P, footY - top);
+      c.fillRect(x - 5 * P, footY - 6 * P, 10 * P, 6 * P);
+      c.fillRect(x - 3 * P, footY - 9 * P, 6 * P, 3 * P);
+      c.fillRect(Math.min(x, l.hx), top, Math.abs(l.hx - x) + P, 2 * P);              // braço reto, em pixel
+      c.fillStyle = "#262626";
+      c.fillRect(l.hx - 5 * P, l.hy - 4 * P, 10 * P, 3 * P);                          // cúpula
+      c.fillRect(l.hx - 3 * P, l.hy - 6 * P, 6 * P, 2 * P);
+      c.fillStyle = "#f2f2f2"; c.fillRect(l.hx - 4 * P, l.hy - P, 8 * P, 2 * P);      // lâmpada
+    }
+
+    // bancos entre os postes, só onde dá para ver (fora do tabuleiro e dos painéis);
+    // o assento fica na altura do quadril do detetive sentado (13 pixels da arte × DET_PX)
+    const covered = [...document.querySelectorAll("#board, .box, .pad, .scorecard")].map(el => el.getBoundingClientRect()).filter(r => r.width);
+    const visible = x => !covered.some(r => x + 60 > r.left && x - 60 < r.right && footY - 20 > r.top && footY - 70 < r.bottom);
+    benches = [];
+    for (let i = 0; i < lamps.length - 1; i++) {
+      const x = (lamps[i].x + lamps[i + 1].x) / 2;
+      if (x < 60 || x > fxW - 60 || !visible(x) || Math.random() < .3) continue;
+      benches.push({ x });
+      const w = 30 * P, sy = footY - 13 * DET_PX;
+      c.fillStyle = "#262626";
+      for (const lx of [x - w / 2 + 2 * P, x + w / 2 - 4 * P]) { c.fillRect(lx, sy, 2 * P, footY - sy); c.fillRect(lx, sy - 9 * P, 2 * P, 9 * P); }
+      c.fillStyle = "#4a4a4a";
+      c.fillRect(x - w / 2, sy - P, w, 2 * P);
+      c.fillRect(x - w / 2 + P, sy - 5 * P, w - 2 * P, P);
+      c.fillRect(x - w / 2 + P, sy - 8 * P, w - 2 * P, 2 * P);
+      c.fillStyle = "#5e5e5e"; c.fillRect(x - w / 2, sy - P, w, P);
+    }
+
+    pigeons = Array.from({ length: 5 }, () => ({ x: 40 + Math.random() * (fxW - 80), y: footY, face: Math.random() < .5 ? -1 : 1, state: "ground", t: rand(2000), next: 600 + rand(2000) }));
+    det = { x: reduceMotion ? fxW * .2 : -60, dir: 1, state: "walk", phase: 0, sitT: 0 };
+  }
+
+  function updateNoir(dt){
+    if (reduceMotion || !det) return;
+    fxClock += dt;
+    if (det.state === "walk") {
+      const prev = det.x;
+      det.x += det.dir * NOIR_WALK * dt / 1000;
+      det.phase += dt * .0075;
+      for (const b of benches) {
+        const crossed = det.dir > 0 ? prev < b.x && det.x >= b.x : prev > b.x && det.x <= b.x;
+        if (crossed && Math.random() < SIT_CHANCE) { det.state = "sit"; det.x = b.x; det.sitT = 4000 + rand(6000); break; }
+      }
+      if (det.x > fxW + 60) det.dir = -1;
+      if (det.x < -60) det.dir = 1;
+    } else if ((det.sitT -= dt) <= 0) det.state = "walk";
+
+    for (const p of pigeons) {
+      p.t += dt;
+      if (p.state === "ground") {
+        // o detetive chegou perto: os pombos voam para longe dele
+        if (Math.abs(p.x - det.x) < 90) {
+          p.state = "fly"; p.face = p.x < det.x ? -1 : 1;
+          p.vx = p.face * (90 + rand(60)); p.vy = -(110 + rand(60));
+        } else if (p.t > p.next) {
+          p.x += p.face * 6 * ns; p.t = 0; p.next = 600 + rand(2000);
+          if (Math.random() < .3) p.face *= -1;
+        }
+      } else if (p.state === "fly") {
+        p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000;
+        if (p.y < -30 || p.x < -30 || p.x > fxW + 30) { p.state = "away"; p.t = 0; p.next = 3000 + rand(6000); }
+      } else if (p.state === "away" && p.t > p.next) {
+        // volta pousando em outro ponto da calçada, longe do detetive
+        do p.x = 40 + Math.random() * (fxW - 80); while (Math.abs(p.x - det.x) < 150 * ns && fxW > 400 * ns);
+        p.y = footY - 220 * ns; p.vx = 0; p.vy = 110; p.state = "land";
+      } else if (p.state === "land") {
+        p.y += p.vy * dt / 1000;
+        if (p.y >= footY) { p.y = footY; p.state = "ground"; p.t = 0; }
+      }
+    }
+
+    // de vez em quando um poste falha por um instante
+    for (const l of lamps) {
+      if (l.flickT > 0) { l.flickT -= dt; l.k = l.flickT > 0 ? .25 + Math.random() * .75 : 1; }
+      else if (Math.random() < .0004 * dt / 16) l.flickT = 300 + rand(700);
+    }
+  }
+
+  function drawNoir(){
+    if (!noirLayer) return;
+    nc.setTransform(1, 0, 0, 1, 0, 0);
+    nc.drawImage(noirLayer, 0, 0);
+    nc.setTransform(1 / NOIR_PIX, 0, 0, 1 / NOIR_PIX, 0, 0);
+    for (const p of pigeons) if (p.state !== "away") drawPigeon(p);
+    // luz dos postes: funil fino na lâmpada que vai abrindo até o chão, em duas faixas chapadas,
+    // mais a poça de luz embaixo e o brilho da lâmpada
+    nc.globalCompositeOperation = "lighter";
+    const funnel = (l, top, bot) => {
+      nc.beginPath();
+      nc.moveTo(l.hx - top, l.hy); nc.lineTo(l.hx + top, l.hy);
+      nc.lineTo(l.hx + bot, footY); nc.lineTo(l.hx - bot, footY);
+      nc.fill();
+    };
+    for (const l of lamps) {
+      nc.fillStyle = `rgba(255,255,255,${.09 * l.k})`; funnel(l, 12, 125);
+      nc.fillStyle = `rgba(255,255,255,${.08 * l.k})`; funnel(l, 8, 75);
+      nc.fillStyle = `rgba(255,255,255,${.12 * l.k})`;
+      nc.beginPath(); nc.ellipse(l.hx, footY, 140, 15, 0, 0, Math.PI * 2); nc.fill();
+      nc.fillStyle = `rgba(255,255,255,${.25 * l.k})`; circle(nc, l.hx, l.hy, 18);
+      nc.fillStyle = `rgba(255,255,255,${.35 * l.k})`; circle(nc, l.hx, l.hy, 9);
+    }
+    nc.globalCompositeOperation = "source-over";
+    // fliperama: só 8 tons de cinza, com pontilhado ordenado nas transições (luz, céu, lua)
+    const w = noirPix.width, h = noirPix.height, im = nc.getImageData(0, 0, w, h), a = im.data;
+    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
+      const l = a[i] * .299 + a[i + 1] * .587 + a[i + 2] * .114 + BAYER[(y & 3) * 4 + (x & 3)];
+      a[i] = a[i + 1] = a[i + 2] = NOIR_LUT[l < 0 ? 0 : l > 255 ? 255 : l | 0];
+    }
+    nc.putImageData(im, 0, 0);
+    fctx.imageSmoothingEnabled = false;
+    fctx.drawImage(noirPix, 0, 0, noirPix.width * NOIR_PIX, noirPix.height * NOIR_PIX);
+    fctx.imageSmoothingEnabled = true;
+    drawDetective();
+  }
+
+  function drawPigeon(p){
+    const c = nc;
+    c.save(); c.translate(p.x, p.y); c.scale(p.face * 1.4, 1.4);
+    const flying = p.state === "fly" || p.state === "land";
+    const peck = !flying && p.t % 1400 < 250 ? 4 : 0;
+    c.fillStyle = "#5c5c5c";
+    c.beginPath(); c.moveTo(-6, -6); c.lineTo(-13, -4); c.lineTo(-6, -3); c.fill();
+    c.fillStyle = "#7a7a7a";
+    c.beginPath(); c.ellipse(0, -5, 7, 4.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#8c8c8c"; circle(c, 6, -10 + peck, 3);
+    c.fillStyle = "#c4c4c4"; c.fillRect(8.5, -10 + peck, 2.5, 1.2);
+    if (flying) {
+      const f = Math.sin(fxClock / 55) * 9;
+      c.fillStyle = "#6a6a6a";
+      c.beginPath(); c.moveTo(-3, -7); c.lineTo(3, -7); c.lineTo(-2, -7 - f); c.fill();
+    } else {
+      c.strokeStyle = "#4a4a4a"; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-1, -1); c.lineTo(-1, 0); c.moveTo(2, -1); c.lineTo(2, 0); c.stroke();
+    }
+    c.restore();
+  }
+
+  // detetive em pixel art, copiado da imagem de referência (31×70 pixels): chapéu, sobretudo com
+  // cinto, lupa erguida numa mão e a outra na cintura. Cada letra é uma cor da referência (DET_SRC);
+  // no tema noir as cores viram tons de cinza, um pouco clareados para ele aparecer na rua escura,
+  // e ganha um contorno claro de 1 pixel.
+  const DET_SRC = "a=#3c2038 b=#ac7864 c=#744c48 d=#504450 e=#402c40 f=#785050 g=#845c4c h=#381c38 i=#443844 j=#f8d0a4 " +
+    "k=#442840 l=#685c68 m=#583844 n=#704c48 o=#381830 p=#a8b8c0 q=#986c5c r=#300028 s=#c49870 t=#341838 u=#483848 " +
+    "v=#240020 w=#cc6868 x=#805850 y=#b08068 z=#a47460 A=#b84850 B=#989098 C=#84605c D=#503040 E=#b85454 F=#684448 " +
+    "G=#e0e0e0 H=#906458";
+  const DET_PAL = Object.fromEntries(DET_SRC.split(" ").map(p => {
+    const [k, hex] = p.split("="), n = parseInt(hex.slice(1), 16);
+    const lum = .299 * (n >> 16) + .587 * ((n >> 8) & 255) + .114 * (n & 255);
+    const g = Math.min(255, Math.round(255 * Math.pow(lum / 255, .7) * 1.08));
+    return [k, `rgb(${g},${g},${g})`];
+  }));
+  const DET_ROWS = [
+    "............eaaae..............",
+    "............eaaae..............",
+    "...........GmDDFFG.............",
+    "...........cgnnbbn.............",
+    "...........cgbbbbbf............",
+    "...........aiddddda............",
+    "...........aidddddeccc.........",
+    ".......vamcbbbbbbbbca..........",
+    "......addddaaccccaaa...........",
+    "...........awwwawaaa...........",
+    "...........aajj.jasa...........",
+    ".llll......ajjjjjaeea..........",
+    "ll.pll.....ajssjsAafh..........",
+    "l..ppl.....aajjwapacff.........",
+    "lp..pl...BegnEEk.pacbbCCC......",
+    "lBp.pl.BBCmgcBcBpCgqbnccqB.....",
+    "BlBGBB.vamcgFplpqDzqqkxxbdGG...",
+    ".llll..vamccap.pdccaaczbbccc...",
+    ".gaa..effmhbad.aacbacczbbbcc...",
+    ".gaa..effmhbad.aacbacczbbbcc...",
+    "sjAje.affqbbadeiecbbdfzbbbbbc..",
+    "sjjwa.aaaxbbaeddecbbhcccnbbbc..",
+    "jjswa.accccbadddecbachncnbbbbf.",
+    "sjAabaaaamcbadeeecbafhaaccbbbf.",
+    ".aaabbfhamcbaddeecbafh..acffbf.",
+    ".acbbbbtaahbadddebcffh...afffbc",
+    "..ffcbbncmhbadddebcffh..acbbbbc",
+    "...hcnnccmhbadeeabffta..acbbbnh",
+    "....eccccmhbaiiiaxffhaCCnzbbxk.",
+    "....pmmmmDhbaeeeamffhgHqHbHHcp.",
+    ".....oooohhbathahaffhybbbbccc..",
+    ".........Bhbasbapagfcffffbeea..",
+    ".......mcqbaassacagaaaaaccaa...",
+    ".......mcqbaaaaaaagajjwwfa.....",
+    ".......mcqbaiddeeagbsjwwaa.....",
+    ".......zbqgadedddagbbsEAo......",
+    ".......zbqgadedddagbbsEAo......",
+    "......fbbcaaiedddagbbgDao......",
+    "......fbbcaaaedddagbbbxfo......",
+    "......fbbcadeaaddeabbbbyo......",
+    "......cthaeddeaeddabbbbbcr.....",
+    "......chaaadddaeddabbbbbca.....",
+    ".....qchaaadddaaddabbbbbca.....",
+    ".....fchaaadddaaddabbbbbca.....",
+    ".....cfhaaadddaaddabbbbbca.....",
+    ".....cbtaudddeaaadabbbbbccaa...",
+    ".....cbtaudddeaaaiabbbbbccaa...",
+    "....efbtauddeaaaaiaaybbbccaa...",
+    "....ecbtauddeaaaaaiaybbbccaa...",
+    "....acbtauddeaaaaaiaybbbccee...",
+    "....acbtauddea...aiaybbbca.....",
+    ".....fbtaeieea...aiaybxfk......",
+    ".....aaaakeeia...eaiaaar.......",
+    ".....aaaakeeia...eaiaaar.......",
+    ".......vakeeea....aiiaar.......",
+    ".......vauddea....aaidkr.......",
+    ".......vauddea....aaidkr.......",
+    ".......vauddaa....haddkr.......",
+    ".......vauddao.....addkr.......",
+    ".......edueda......addkr.......",
+    "......eddddee......aedkr.......",
+    "......addddda......aideeo......",
+    "......aaaaaaa......aaaaao......",
+    "......acccca........rcggo......",
+    ".....agggFaa........rcggaa.....",
+    "..geegggggga........ocgggeaa...",
+    "..acccdaaaaa........oannggcca..",
+    "..eaaaa..............vnccccca..",
+    "......................lhhhhha..",
+    "......................lkkkkkk.."
+  ];
+  // passo: das linhas 55 para baixo, as colunas de uma perna sobem 2 pixels (o pé sai do chão)
+  const DET_LEG_Y = 55;
+  const liftLeg = (x0, x1) => DET_ROWS.map((r, y) => y < DET_LEG_Y ? r
+    : [...r].map((ch, x) => x < x0 || x > x1 ? ch : (DET_ROWS[y + 2] ? DET_ROWS[y + 2][x] : ".")).join(""));
+  function detSprite(rows){
+    const w = rows[0].length, h = rows.length, c = document.createElement("canvas");
+    c.width = w + 2; c.height = h + 2;
+    const x2 = c.getContext("2d"), on = (x, y) => y >= 0 && y < h && x >= 0 && x < w && rows[y][x] !== ".";
+    x2.fillStyle = "#5c5c5c"; // contorno discreto, só para separar ele do fundo escuro
+    for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) {
+      if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) x2.fillRect(x + 1, y + 1, 1, 1);
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (on(x, y)) { x2.fillStyle = DET_PAL[rows[y][x]]; x2.fillRect(x + 1, y + 1, 1, 1); }
+    }
+    return c;
+  }
+  const DET_WALK = [DET_ROWS, liftLeg(0, 14), DET_ROWS, liftLeg(15, 30)].map(detSprite);
+  // sentado: some um pedaço das coxas (linhas 50–57), então o quadril desce até a altura do banco
+  const DET_SITTING = detSprite(DET_ROWS.slice(0, 50).concat(DET_ROWS.slice(58)));
+
+  // desenhado por cima do cenário já pixelado, com pixels de DET_PX px (um pouco menores que os do
+  // cenário, para ele ter altura de gente perto do poste); espelhado para a lupa ir na frente
+  const DET_PX = 2;
+  function drawDetective(){
+    const c = fctx, d = det, sitting = d.state !== "walk", P = DET_PX;
+    const img = sitting ? DET_SITTING : DET_WALK[Math.floor(d.phase / 1.1) % 4];
+    c.save(); c.translate(Math.round(d.x / P) * P, footY); c.scale(-d.dir, 1);
+    c.imageSmoothingEnabled = false;
+    const left = -Math.round(img.width / 2) * P, top = -(img.height - 1) * P;
+    c.drawImage(img, left, top, img.width * P, img.height * P);
+    c.imageSmoothingEnabled = true;
+    if (sitting) {
+      // cigarro aceso no canto da boca, com um fiozinho de fumaça subindo
+      const ex = left + 19 * P, ey = top + 14 * P;
+      c.fillStyle = `rgba(255,255,255,${.6 + .4 * Math.sin(fxClock / 300)})`; c.fillRect(ex, ey, P, P);
+      for (let i = 0; i < 3; i++) {
+        const rise = (fxClock / 40 + i * 20) % 60;
+        c.fillStyle = `rgba(220,220,220,${(1 - rise / 60) * .3})`;
+        c.fillRect(ex + Math.round(Math.sin(fxClock / 400 + i) * 2) * P, ey - rise, P * 2, P * 2);
+      }
+    }
+    c.restore();
+  }
+  buildNoir();
+
+  // ---------- fundo do tema hacker: chuva de binário e dois Dalís que saem de trás do jogo ----------
+  // Roteiro em ciclo de 22 s: binário caindo → a tela "buga" → dois Dalís saem de trás do tabuleiro,
+  // um para cada lado → mexem a boca → balão "HAHAHAHA!!" → bugam de novo e voltam para trás.
+  // O Dalí vem da foto de referência, convertida em pixel art verde de 100×150 (6 tons) e guardada
+  // abaixo comprimida: cada letra é um tom (a = mais escuro … f = mais claro, "." = transparente),
+  // seguida de quantas vezes se repete; as linhas são separadas por "/".
+  const HK_CYCLE = 22000;
+  const HK = { glitch1: 3000, emerge: 4200, talk: 5700, laugh: 7200, glitch2: 13000, retreat: 13800, gone: 15000 };
+  const G_BRIGHT = "#39ff14", G_MID = "#1fa845", G_PALE = "#b6ffb0";
+  const LAUGH = "HAHAHAHA!!";
+  const DALI_W = 100, DALI_H = 150;
+  const DALI_PAL = { a: "#020c04", b: "#06280d", c: "#0d5a1e", d: "#1a9a3c", e: "#39ff14", f: "#c8ffc0" };
+  const DALI_RLE = ".100/.100/.100/.100/.100/.100/.100/.100/.100/.100/.60dbc.37/.41cb2a4b3ca2d2b2a6cb.34/.39c2a26cb.31/.37ba32b.29/.33db2a35b2.27/.32b4a37b.26/.30b3a14ba26c.25/.29c2ba21ba21b2.23/.28bca3ba12ba5ba2baba19b.22/.27b2a2ca13ba3ba5ba22b.21/.26b2aba16ba32c.20/.25acab2a9ba7ba10b3a20.19/.24b2aba14b2a3b3a4bcb3cb2ababa15c.18/.23ba2ba13b2a4b3c6dcdc4b2a2baba12b.18/.22bcaba14b3ab3c2d7e2d4c2b4ababa10b.17/.21b2aba16b4c2d6e9d3b4ab4aba6bd.16/.21ba18b2a2cd2e17d3b2a5ba5ba2b.16/.19cba18b3abcde20d2c2b2a4b4a3b.16/.19ba18ba4cd2e24dcb2a5bab2c.16/.19ba21bcd2e27dcba4ba3b.16/.18ba20b2c2d2e14fe14dcba6b.16/.17cba20b2cd2e31dcb2a4b.16/.17ba20b2cd5e2de14fe12dcdca3b.16/.16b2a20bc3d8e29dca2bd.15/.16ba19b3c2d9e14f2e13d2cab2c.14/.15ca21bc5d7e14f3e12dedca2c.14/.15ca21b2c5d7e11f6e13d2bab.14/.14ba21b3c6d6e8f9e14da3.14/.14ba21b3c4d6ed2e14fe15d2abc.13/.13ca23b4c3d8e8fe2f2e17d2c2b.13/.12da23b4cdcd9e8fe2fe2fe6de5de2d3b2.13/.12ba23b2c3d11e12f2e10de4ded2b2.13/.11ba24bcdcd12e4de9fe11d7c2.13/.10da24bc2d15e8fe17d6c2.13/.10ba23bc2dcdcd11e17de8d6c2b2.12/.9da23bc3d16e26d5c2a2bc.10/.8ca24bc3d15e2d5ce2fe15d6c2b2ab.10/.8ca8b3a12bc5d12cd3c2bc3bde15d6c3b2ac.10/.8a7bd2e3b2a6b3c6d9c6b5a2b2cd2e13d5c3abc2.10/.7ba6c2ba3ce2bab6c7d8c2b11cba3bcede12d3c3b2.12/.7a6c2a6be3b4c6dc2d8cb3c2d4e2d3ca3b2cd4e6ded4c2e2d.11/.6ba5cdc2bcba3bd3b3c2b2c3d9c6d6ed4ba2bab2cd9ed5c4.11/.6ba5cd5c2ba2cdecb4c5d9c4dc7d5cb2ab3c2d3ed4ed5cbd.12/.6a5bed7ca2cd3b4c4d8c11bc3dededcbab2c4d9ed4.14/.6a5bd9bacdc2bab2c4d8c2bc4bcb5a3cd2edcb4c2d14.14/.5da5be2d2cd2e2cac5a2bc4d9cbc5b2abcdb3a2cd3b5cd12c2.14/.5da6e3dcde4abc3bab3c3d5ed3c2dc3b3cbab2fdca2cd2cb3cd8c3b4d.13/.5ca6de2d3e2deb2c2b2a3bcdcd5e4dcd2c5ba2cbf3b3c2db2cd3cdc3b3a5c.13/.5ca6ce2cd5ba2c3ba3c2dc2d4e4bad5bcb2a2bcf2c2b2c3d3ed2c3b2a7b.13/.5ba6bedced4a3cd2cab2c2dc2d4e4b2e4dbcdb4e3dbcb2c2de3d2cba10b.13/.5ca7edced3cba2e2dcb3c6d3e4b2e5cbcdb2e3dedcb2c2de4dba6b2c2ac.13/.5da7d2ced3ecbce3dcb3c5d4e4bf2e3dc2bc2de2ded8e3ca2bc3d4cbd.13/.6ba6bdce5dcdfe2dcb3c5d4e4bf2e5cdbc5d2e3dede4caba5bcdcd.14/.6dba6ebe5dc2e3dcb2cbc2bc2d4edecf3e3f2ed8e2de5fecbabcec2a2c2.15/.7ca6cbde4db2dedc4b2c2b2c2d4e2cef4e10d2e5de4c2b4cfcab2.15/.7c2a5cb2ede2ca2dedc8b2c2d5ebe2f4e6d4e6d3e2dcba2bcfbab.16/.9ba4beb3de2b2d2c8b3c3d5ce4fe3d4c2de6d3e3d2ca2bcfbac.16/.10a5debabde2dc10b3c4d4b2e9d2ef3e6d2e4d2b3d2bc.17/.10ab2a2bd2cbd3ed2c9b3c3d4ece9f4e8de2fed2c2d4.19/.8ba2bcba2cd3e5dc10b2c3d5ce8f6e10fed3cbc4.18/.6ba4bc2a3dede5dc10b2c3d5abde5fef5e10f2dcd2cb3.19/.4cba5bc3a2bcded3cdcbc9bc3d6cde8f4e10fedc2d2cb.20/.3a9c3ba3bc3badc12bc4d4bd3e5fe2fe2d6e3fedcbcd3.20/c2a10bcdca8bc13bc2dcd4cad3e9d7e6db2c2d.20/a13c2dca7bc2bc13d7bd3e8d3e2d4e5d2c3d.20/a13bcd2cba2ba3bcbc13d7cbde7d5e2d3e3fed7.20/a14cd7ca2b2c15d7ade5d4cd2e2d3e6d5.21/a14bd3e4ca2b2c15d7abe4d5cd3ed3e6d4cd.15d.4/a14bcd2e4ca2b4c6dc6d7ebae2d3e2cbc2d3cd2e5d3c2.14dc.5/a15cd3e3da2b5c4d2c8d6babd3e3b2a5b2cd8c2.13cb.6/a13cabcd2e3da2b4c5d4c9d4cbd2e4ca8bc3d2c4.13cb.7/a13b2acd2e3da2b5c6d2cdc8d4bce6dba7b2c2bc4.12b2.8/a13c2abcd2e2da2b5c4d7c2d2c4d2ebabe7dca9c3a.12db.9/a14fcbcd2e3a4b4c3d14cbcd2a2be2d2e3dca6bc3bd.11c2.10/a14c2abd2e3a5b4c3d14cb2cba2bde3d3ca6c4b.10c3.11/a14bfcbcde3ba5b3c3d10e4dcba6bd2bd2cba4bc3b.10cd.13/a14bfcbcd2e2ba6b3c3d8e6d2ca7bcbc2ba4bc2bc.9b2.14/a15dfcbcde2ca7b2c3d8e5d4ca8c2bca4bc3.7dc3.15/a15bfb2cd2eda7b3c2d9e2d3c5ba5b3c2a3bc2bc.5cb2c.17/a15bf2bcd4aba7bc5d8edc4b2a3b3cd2baba2bc3.4b2c2.19/a16f2b2cd3b2a7b2c4d10cd2e2d2cba3b2cd2ba3bcbcbcb2c.21/a16bf2bcd3b3a7b2c5d8e3d2e2d2cba4ba10c2.23/a16cf2b2cd2cb2a7b3c6d5e4d5ed2cba10b2.26/a17ef2bc2dcb2a8b2c8d9cd8cba5d.29/a17bf2b2c3aba9b2c8d8c3d7c2a4c.29/a17cf2dbc3b3a9b3c3d2cd5cdc3ba3bc5ba3.30/a18f3b2c2b2a11b3c3d2c2d7c2b2a4b6c.30/a18bf2cbc2b2a12b4c2d6ed5c3b2a3bc3b.30/a18cf3abcb3a13b2c2d4e9d3cb4c2b.31/a18bf3cbc2a17bc3d2e10d3c5b2.31/a19cf3ab3a17b2c2d2e8d5c3b2.32/a19bf3cb3a19bc3d2e6d5c2b3.32/a19cf4b2a21b2c3d12cb2.33/a19bf4db2a22b2c2dcd3c2dc2dcb.34/a20f5ba26bc11d.35/a20cf5a27b7cbcb.36/a20bf5a33b3c.37/a20cf4eda33b2.38/a20bf4e2ca23b.4dc2.41/a21f3e3ba19b2.51/a21ef2e3dba16cb.53/a21cf2e2d2ca15b.55/a21bfe3d2ca13cd.56/a21ce5dcba11b.58/a21be4d2cba10d.59/a22e4d2cba8c.61/a22de2d3cba5c.64/a22bd5cb2a3b2.64/a22bed3c3ba5.4cb.58/a22ce3d2c2b2a4c.3ba.58/a22bfe4dcb2a4b.2cab.58/a23f2e3d2ca5b.ba2c.58/a23efe4dca5bca3b.58/a23cfe4dba5b2a3b.58/a23cf2e3ca11.59/a23bf2e2a12b.59/a23bf2ecba11b.59/a23cfdb4a10b.59/a23c2bab2a11.60/a23b2ab3a11.60/a26b3a10c.60/a25b3a11b.60/a26b2a11c.60/a25b3a11.61/a24b5a9b.61/a24bab2a11.61/a25b4a9b.61/a25b2a11c.61/a25b2a11.62/a26ba10c.62/a26b2a9b.62/a26ba10c.62/a37.63/a37.63/a36b.63/a36b.63/a36c.63/a36.64/a35b.64/a36.64";
+  const DALI_ROWS = DALI_RLE.split("/").map(r => r.replace(/([.a-f])(\d*)/g, (_, ch, n) => ch.repeat(n ? +n : 1)));
+  // boca falando: abaixo da linha da boca, lábio de baixo e queixo são "puxados" para baixo até k pixels.
+  // O puxão é máximo no meio da boca e some suave nos cantos (cos²) e no fim do queixo, então não há
+  // emenda: o vão que abre tem forma de boca, com os dentes em cima e a língua embaixo quando abre bem.
+  const MOUTH_Y = 95, MOUTH_X = 60, MOUTH_RX = 9, CHIN_Y1 = 104, CHIN_Y2 = 113, MOUTH_MAX = 6;
+  const jawShift = (k, x, y) => {
+    const dx = Math.abs(x - MOUTH_X);
+    if (dx >= MOUTH_RX) return 0;
+    const wy = y <= CHIN_Y1 ? 1 : Math.max(0, 1 - (y - CHIN_Y1) / (CHIN_Y2 - CHIN_Y1));
+    return k * Math.cos(dx / MOUTH_RX * Math.PI / 2) ** 2 * wy;
+  };
+  const DALI_FRAMES = Array.from({ length: MOUTH_MAX + 1 }, (_, k) => {
+    const c = document.createElement("canvas"); c.width = DALI_W; c.height = DALI_H;
+    const x2 = c.getContext("2d");
+    for (let y = 0; y < DALI_H; y++) for (let x = 0; x < DALI_W; x++) {
+      let ch = DALI_ROWS[y][x];
+      if (y >= MOUTH_Y) {
+        const gap = Math.round(jawShift(k, x, MOUTH_Y)), dx = Math.abs(x - MOUTH_X);
+        if (y < MOUTH_Y + gap) {
+          ch = y === MOUTH_Y && gap >= 3 && dx <= Math.min(4, gap - 1) ? "f"      // dentes
+            : y === MOUTH_Y + gap - 1 && gap >= 4 && dx <= 3 ? "b"               // língua
+            : "a";
+        } else ch = DALI_ROWS[Math.round(y - jawShift(k, x, y))][x];
+      }
+      if (ch !== ".") { x2.fillStyle = DALI_PAL[ch]; x2.fillRect(x, y, 1, 1); }
+    }
+    return c;
+  });
+  let rainLayer = null, rctx = null, rainCols = [], rainAcc = 0, hkT = 0;
+  const RAIN_COL = 11, RAIN_STEP = 45; // largura de cada coluna (px) e intervalo de cada passo (ms)
+
+  function buildHacker(){
+    rainLayer = document.createElement("canvas");
+    rainLayer.width = fxW; rainLayer.height = fxH;
+    rctx = rainLayer.getContext("2d");
+    rainCols = Array.from({ length: Math.ceil(fxW / RAIN_COL) }, () => ({ y: -rand(fxH), every: 1 + rand(2), tick: 0, ch: "0" }));
+    if (reduceMotion) { for (let i = 0; i < 150; i++) rainStep(); hkT = HK.laugh + 1500; }
+  }
+  // um passo da chuva: escurece tudo um pouco (rastro) e cada coluna desce um caractere
+  function rainStep(){
+    rctx.font = "15px VT323, monospace";
+    rctx.fillStyle = "rgba(0,0,0,.07)"; rctx.fillRect(0, 0, fxW, fxH);
+    rainCols.forEach((col, i) => {
+      if (++col.tick % col.every) return;
+      const x = i * RAIN_COL;
+      if (col.y >= 0) { rctx.fillStyle = "#000"; rctx.fillRect(x, col.y - 13, RAIN_COL, 15); rctx.fillStyle = G_MID; rctx.fillText(col.ch, x, col.y); }
+      col.y += 14; col.ch = Math.random() < .5 ? "0" : "1";
+      rctx.fillStyle = G_PALE; rctx.fillText(col.ch, x, col.y);
+      if (col.y > fxH + rand(150)) col.y = -rand(200);
+    });
+  }
+
+  function speechBubble(x, top, n, side, S){
+    const size = Math.round(7 * S);
+    fctx.font = `${size}px VT323, monospace`; fctx.textBaseline = "middle";
+    const w = fctx.measureText(LAUGH).width + 18, h = size + 12;
+    let bx = side < 0 ? x - w + 14 : x - 14;
+    bx = Math.max(6, Math.min(fxW - w - 6, bx));
+    const by = Math.max(6, top - h - 16);
+    fctx.fillStyle = "#000"; fctx.fillRect(bx, by, w, h);
+    fctx.strokeStyle = G_BRIGHT; fctx.lineWidth = 2; fctx.strokeRect(bx, by, w, h);
+    const tx = Math.max(bx + 10, Math.min(bx + w - 10, x));
+    fctx.fillStyle = G_BRIGHT;
+    fctx.beginPath(); fctx.moveTo(tx - 6, by + h); fctx.lineTo(tx + 6, by + h); fctx.lineTo(x, top - 2); fctx.fill();
+    fctx.fillText(LAUGH.slice(0, n) + (Math.floor(hkT / 250) % 2 ? "_" : ""), bx + 9, by + h / 2 + 1);
+    fctx.textBaseline = "alphabetic";
+  }
+
+  function updateHacker(dt){
+    if (reduceMotion || !rctx) return;
+    hkT += dt; rainAcc += dt;
+    while (rainAcc >= RAIN_STEP) { rainAcc -= RAIN_STEP; rainStep(); }
+  }
+  function drawHacker(){
+    if (!rainLayer) return;
+    fctx.fillStyle = "#000"; fctx.fillRect(0, 0, fxW, fxH);
+    fctx.drawImage(rainLayer, 0, 0, fxW, fxH);
+
+    const t = hkT % HK_CYCLE, ease = k => 1 - Math.pow(1 - k, 3);
+    const glitching = (t >= HK.glitch1 && t < HK.emerge) || (t >= HK.glitch2 && t < HK.retreat);
+    let p = 0; // 0 = escondidos atrás do tabuleiro, 1 = nos lados
+    if (t >= HK.emerge && t < HK.talk) p = ease((t - HK.emerge) / (HK.talk - HK.emerge));
+    else if (t >= HK.talk && t < HK.retreat) p = 1;
+    else if (t >= HK.retreat && t < HK.gone) p = 1 - ease((t - HK.retreat) / (HK.gone - HK.retreat));
+
+    // com os Dalís na tela a chuva escurece para eles aparecerem; sem eles, o binário fica com tudo
+    if (p > 0) { fctx.fillStyle = `rgba(0,0,0,${.45 * p})`; fctx.fillRect(0, 0, fxW, fxH); }
+
+    if (p > 0 && !(glitching && Math.random() < .4)) {
+      // saem do centro do tabuleiro e param logo depois dos painéis, um de cada lado
+      const S = Math.max(2, Math.round(fxH * .4 / DALI_H));
+      const br = board.getBoundingClientRect();
+      const rects = [br, ...[...document.querySelectorAll(".box")].map(el => el.getBoundingClientRect()).filter(r => r.width)];
+      const half = DALI_W / 2 * S * .85;
+      const cx = br.left + br.width / 2;
+      const tl = Math.max(half * .7, Math.min(...rects.map(r => r.left)) - half - 12);
+      const tr = Math.min(fxW - half * .7, Math.max(...rects.map(r => r.right)) + half + 12);
+      const laughing = t >= HK.laugh && t < HK.glitch2;
+      // falando: abre e fecha em "sílabas" de tamanhos diferentes; rindo: "HA HA HA" rápido e bem aberto
+      const mouth = t >= HK.talk && t < HK.laugh ? Math.abs(Math.sin(hkT / 95)) * (.45 + .3 * Math.sin(hkT / 330))
+        : laughing ? .3 + .7 * Math.max(0, Math.sin(hkT / 70)) : 0;
+      const y = Math.max(75 * S, Math.min(br.top + br.height / 2, fxH - 55 * S)) + (laughing ? Math.sin(hkT / 85) * S : 0);
+      const frame = DALI_FRAMES[Math.round(mouth * MOUTH_MAX)];
+      fctx.imageSmoothingEnabled = false;
+      for (const [side, tx] of [[-1, tl], [1, tr]]) {
+        const x = cx + (tx - cx) * p;
+        fctx.save(); fctx.translate(x, y);
+        if (side > 0) fctx.scale(-1, 1); // o da direita é espelhado, os dois olham para o centro
+        fctx.drawImage(frame, -DALI_W / 2 * S, -DALI_H / 2 * S, DALI_W * S, DALI_H * S);
+        fctx.restore();
+        if (t >= HK.laugh && t < HK.retreat) {
+          // ri digitando, como num terminal, e recomeça a cada 2,6 s
+          const n = Math.min(LAUGH.length, Math.floor(((t - HK.laugh) % 2600) / 80));
+          speechBubble(x + side * -5 * S, y - 64 * S, n, side, S);
+        }
+      }
+      fctx.imageSmoothingEnabled = true;
+    }
+
+    if (glitching) {
+      // tela bugando: faixas deslocadas, clarões verdes e tarjas pretas
+      const dpr = window.devicePixelRatio || 1;
+      for (let i = 0; i < 7; i++) {
+        const gy = Math.random() * fxH, gh = 4 + Math.random() * 40;
+        fctx.drawImage(fx, 0, gy * dpr, fx.width, gh * dpr, (Math.random() - .5) * 60, gy, fxW, gh);
+      }
+      if (Math.random() < .35) { fctx.fillStyle = "rgba(57,255,20,.18)"; fctx.fillRect(0, 0, fxW, fxH); }
+      if (Math.random() < .2) { fctx.fillStyle = "#000"; fctx.fillRect(0, Math.random() * fxH, fxW, 10 + Math.random() * 60); }
+    }
+  }
+  buildHacker();
+
+  // ---------- laço ----------
+  let last = performance.now();
+  function update(dt){
+    if (state !== "playing") return;
+    if (clearing) { clearT += dt; if (clearT >= CLEAR_MS) finishClear(); return; }
+    if (!cur) return;
+    if (dasDir && (dasDir < 0 ? held.left : held.right)) {
+      dasT += dt;
+      if (dasT >= DAS) { arrT += dt; while (arrT >= ARR) { arrT -= ARR; move(dasDir); } }
+    }
+    const interval = held.down ? Math.min(SOFT, gravityMs()) : gravityMs();
+    dropAcc += dt;
+    while (dropAcc >= interval && cur) {
+      dropAcc -= interval;
+      if (!collide(cur.m, cur.x, cur.y + 1)) { cur.y++; if (held.down) { score++; hud(); } }
+      else { dropAcc = 0; break; }
+    }
+    if (cur && grounded()) { lockAcc += dt; if (lockAcc >= LOCK) lock(); }
+    else lockAcc = 0;
+  }
+  function frame(now){
+    const dt = Math.min(100, now - last); last = now;
+    update(dt);
+    drawBoard(); drawSide();
+    if (theme === "padrao") { updateFx(dt); drawFx(); }
+    else if (theme === "noir") { updateNoir(dt); drawNoir(); }
+    else if (theme === "hacker") { updateHacker(dt); drawHacker(); }
+    requestAnimationFrame(frame);
+  }
+
+  // tela inicial: tabuleiro de exemplo por trás do menu
+  grid = emptyGrid();
+  const demo = ["JJJ.ZZ.OOT","IJ.SZZ.OOT","IL.SSLLLTT","IL..SLTTTO","ILLIIIITOO"];
+  demo.forEach((row, i) => row.split("").forEach((ch, x) => { if (ch !== ".") grid[ROWS - demo.length + i][x] = ch; }));
+  score = 0; lines = 0; level = 1; queue = ["T","I","S","L"]; hold = "O"; canHold = true;
+  hud();
+  if (!Array.isArray(history)) history = [];
+  renderHistory();
+  showWelcome();
+  let savedTheme = "padrao";
+  try { savedTheme = localStorage.getItem("chuva-tema") || "padrao"; } catch (e) {}
+  applyTheme(savedTheme);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
