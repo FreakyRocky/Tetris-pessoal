@@ -461,6 +461,10 @@ h1 span { color: var(--accent); }
 [data-theme="hacker"] .go-hist { --hist-tail: #5a5a5a; }
 [data-theme="noir"] .go-hist { --hist-tail: #fff; }
 [data-theme="noir"] .go-menu .history { background: #000; border: 3px solid #fff; color: #e6e6e6; }
+/* a fonte do noir é larga: letra menor e cada partida numa linha só, para o balão não crescer */
+[data-theme="noir"] .go-menu .history { font-size: 9px; padding: 10px; }
+[data-theme="noir"] .go-menu .history li { white-space: nowrap; gap: 12px; }
+[data-theme="noir"] .go-menu .history b { font-size: 8px; }
 body.go-run .board-wrap { visibility: hidden; }
 /* padrão: tudo vira a massinha da animação (desenhada no lugar exato de cada parte) */
 :root[data-theme="padrao"] body.go-run :is(header, .box, .scorecard, .pad) { visibility: hidden; }
