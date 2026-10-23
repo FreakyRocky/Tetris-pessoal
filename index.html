@@ -61,6 +61,53 @@
 [data-theme="noir"] .btn, [data-theme="noir"] .pad button { box-shadow: 3px 3px 0 #000; }
 [data-theme="noir"] .btn:active, [data-theme="noir"] .pad button:active { transform: translate(3px, 3px); box-shadow: none; }
 [data-theme="noir"] #board, [data-theme="noir"] .box canvas, [data-theme="noir"] #bgfx { image-rendering: pixelated; }
+/* noir: os painéis são objetos da história. À esquerda, do detetive: pastas de arquivo do caso, com
+   aba e carimbo de "SIGILOSO". À direita, do ladrão: cofres de aço com rebites, segredo e dobradiças.
+   O placar embaixo do tabuleiro é o saco de dinheiro, aberto, com o jogo saindo de dentro dele. */
+[data-theme="noir"] .left .box {
+  position: relative; margin-top: 16px; background: #161616; border-color: #8a8a8a;
+}
+[data-theme="noir"] .left .box::before {
+  content: "CASO Nº 07"; position: absolute; left: -3px; top: -17px; height: 14px; padding: 0 14px 0 6px;
+  background: #8a8a8a; color: #111; font: 7px/14px "Press Start 2P", monospace; letter-spacing: 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+}
+[data-theme="noir"] .left .box::after {
+  content: "SIGILOSO"; position: absolute; right: 6px; bottom: 8px; padding: 2px 4px;
+  border: 2px solid currentColor; color: rgba(255,255,255,.22); font: 7px/1 "Press Start 2P", monospace;
+  transform: rotate(-12deg); pointer-events: none;
+}
+[data-theme="noir"] .right .box {
+  position: relative; border-width: 4px; border-color: #6e6e6e;
+  /* rebites em três cantos (no quarto fica o segredo) sobre aço escovado */
+  background:
+    radial-gradient(circle at 8px 8px, #a8a8a8 0 2px, #000 2px 3px, transparent 3px),
+    radial-gradient(circle at 8px calc(100% - 8px), #a8a8a8 0 2px, #000 2px 3px, transparent 3px),
+    radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), #a8a8a8 0 2px, #000 2px 3px, transparent 3px),
+    repeating-linear-gradient(0deg, #1e1e1e 0 2px, #222 2px 4px);
+  box-shadow: 4px 4px 0 #000, inset 0 0 0 2px #000, inset 0 0 0 4px #3e3e3e;
+}
+/* segredo do cofre (rodinha com marcas) no canto de cima e as duas dobradiças do lado esquerdo */
+[data-theme="noir"] .right .box::before {
+  content: ""; position: absolute; right: 10px; top: 8px; width: 16px; height: 16px; border-radius: 50%;
+  background: radial-gradient(circle, #222 0 3px, #8a8a8a 3px 5px, #3a3a3a 5px);
+  box-shadow: 0 0 0 2px #000, 0 -9px 0 -6px #c8c8c8;
+}
+[data-theme="noir"] .right .box::after {
+  content: ""; position: absolute; left: -8px; top: 22%; width: 5px; height: 14px; background: #6e6e6e;
+  box-shadow: 0 0 0 1px #000, 0 44px 0 0 #6e6e6e, 0 44px 0 1px #000;
+}
+[data-theme="noir"] .right .box .label { padding-right: 22px; }
+[data-theme="noir"] .board-col { gap: 0; }
+/* o saco é uma imagem de pixel art gerada pelo script (paintSack), a mesma usada na animação do fim
+   de jogo: sobe 30px por trás do pé do tabuleiro (a borda de trás e a boca aparecem dos lados dele),
+   e é mais largo que o tabuleiro; o texto do placar fica no corpo, abaixo da borda enrolada */
+[data-theme="noir"] .board-wrap { position: relative; z-index: 3; }
+[data-theme="noir"] .scorecard {
+  position: relative; z-index: 2; margin: -30px -40px 0; min-width: calc(100% + 80px); padding: 54px 46px 22px;
+  border: 0; box-shadow: none; background: transparent center / 100% 100% no-repeat; image-rendering: pixelated;
+  text-shadow: 2px 2px 0 #000;
+}
 :root[data-theme="hacker"] {
   --bg: #000000;
   --bg-2: #021a08;
@@ -102,11 +149,13 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 16px;
+  margin: 0;
   box-sizing: border-box;
   -webkit-user-select: none; user-select: none;
   touch-action: manipulation;
 }
-.wrap { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+/* a área do jogo ocupa a janela inteira (tirando as margens do body), para o rodapé só aparecer rolando */
+.wrap { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-height: calc(100dvh - 32px); box-sizing: border-box; }
 /* cena animada de fundo: Pac-Man no tema padrão, rua à noite no noir, binário e Dalís no hacker */
 #bgfx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: none; opacity: .8; }
 :root[data-theme="padrao"] #bgfx, :root[data-theme="noir"] #bgfx, :root[data-theme="hacker"] #bgfx { display: block; }
@@ -209,8 +258,21 @@ h1 span { color: var(--accent); }
 [data-theme="hacker"] .popup.combo.show { animation: pop 1200ms ease-out, combo-hacker 160ms steps(1) 7; }
 @keyframes combo-hacker { 50% { color: transparent; text-shadow: -3px 0 #39ff14, 3px 0 #0a3d14; } }
 
-.keys { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); }
-.keys b { display: inline-block; min-width: 46px; font-family: var(--font-display); font-weight: 400; font-size: 11px; color: var(--fg); }
+/* painel de Controles: uma linha por função, teclinhas à esquerda e o que fazem à direita, com um fio
+   fino entre as linhas; as setas usam a fonte do sistema, maior, para serem reconhecíveis */
+.box.help { width: 220px; }
+.keys { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 13px; color: var(--muted); }
+.keys li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); white-space: nowrap; }
+.keys li:first-child { border-top: 0; padding-top: 2px; }
+.kcs { display: flex; gap: 4px; flex-shrink: 0; }
+.kfn { text-align: right; overflow: hidden; text-overflow: ellipsis; }
+.kc {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; box-sizing: border-box;
+  font-family: var(--font-display); font-size: 10px; line-height: 1; color: var(--fg);
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px;
+}
+:root .chip.arrow, :root .kc.arrow { font-family: system-ui, "Segoe UI Symbol", sans-serif; font-size: 17px; font-weight: 700; line-height: 1; }
+:root .chip.arrow { padding-block: 2px; }
 
 .pad { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .pad button {
@@ -224,6 +286,13 @@ h1 span { color: var(--accent); }
 
 @media (max-width: 640px), (pointer: coarse) {
   .pad { display: grid; }
+}
+/* no computador a página inteira cabe na janela: o tabuleiro desconta o espaço do título, do placar
+   e das margens (cada tema tem molduras de tamanhos diferentes) */
+@media (min-width: 641px) {
+  #board { height: min(66vh, 600px, calc(100dvh - 252px)); }
+  [data-theme="hacker"] #board { height: min(66vh, 600px, calc(100dvh - 392px)); }
+  [data-theme="noir"] #board { height: min(66vh, 600px, calc(100dvh - 268px)); }
 }
 @media (max-width: 640px) {
   .game {
@@ -243,6 +312,323 @@ h1 span { color: var(--accent); }
   h1 { font-size: 20px; }
   .hint { display: none; }
 }
+/* rodapé: uma faixa simples de canto a canto, abaixo do jogo, com fonte padrão do sistema e só as
+   cores do tema (parte "séria" do site, sem enfeite de jogo). Sai das margens laterais e de baixo do
+   body para encostar nas bordas da janela */
+.site-footer {
+  position: relative; z-index: 1; box-sizing: border-box;
+  margin: 16px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) -16px calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  padding: 28px max(16px, env(safe-area-inset-right, 0px)) 18px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--panel); border-top: 1px solid var(--line); color: var(--muted);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-shadow: none; letter-spacing: normal;
+}
+.foot-grid, .foot-bottom { max-width: 960px; margin-inline: auto; }
+.foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1.3fr; gap: 28px; }
+.foot-logo { font-weight: 600; font-size: 16px; color: var(--fg); }
+.foot-logo span { color: inherit; }
+.site-footer p { margin: 0 0 8px; }
+.site-footer h2 { font-weight: 600; font-size: 13px; line-height: 1.4; letter-spacing: normal; text-transform: none; color: var(--fg); margin: 0 0 10px; }
+.site-footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.site-footer a, .site-footer button { color: var(--fg); opacity: .85; text-decoration: none; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.site-footer a:hover, .site-footer button:hover, .site-footer a:focus-visible, .site-footer button:focus-visible { opacity: 1; text-decoration: underline; outline: none; }
+.foot-small { font-size: 12px; }
+.foot-bottom { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; }
+.foot-bottom p { margin: 0; }
+@media (max-width: 640px) {
+  .foot-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .foot-brand { grid-column: 1 / -1; }
+}
+
+/* tela de Controles: uma linha por função, com as teclas dela como "teclinhas" clicáveis; uma tecla
+   repetida em duas funções faz as linhas piscarem, com um alerta de cada lado */
+.overlay { overflow-y: auto; justify-content: safe center; }
+.ov-extra { width: 100%; }
+.ov-extra:empty { display: none; }
+.binds { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.bind {
+  display: grid; grid-template-columns: 14px 1fr auto 14px; align-items: center; gap: 6px;
+  padding: 6px 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; text-align: left;
+}
+.bind-name { font-size: 12px; line-height: 1.2; color: var(--fg); }
+.chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 132px; }
+.chip {
+  font-family: var(--font-display); font-size: 10px; line-height: 1; min-width: 26px; padding: 5px 6px;
+  background: var(--bg-2); color: var(--fg); border: 1px solid var(--line); border-radius: 3px; cursor: pointer;
+}
+.chip:hover, .chip:focus-visible { border-color: var(--accent); outline: none; }
+.chip.add { color: var(--muted); border-style: dashed; }
+.chip.dup { border-color: #f0647a; }
+.chip.listening { animation: chip-listen .7s steps(1) infinite; }
+@keyframes chip-listen { 50% { background: var(--accent); color: var(--on-accent); } }
+.warn {
+  visibility: hidden; display: grid; place-items: end center; width: 14px; height: 14px; padding-bottom: 1px; box-sizing: border-box;
+  font: 700 9px/1 var(--font-display); background: #f2cf4a; color: #1a1500; clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.bind.conflict { animation: bind-conflict .8s steps(1) infinite; }
+.bind.conflict .warn { visibility: visible; animation: blink .8s steps(1) infinite; }
+@keyframes bind-conflict { 50% { border-color: #f0647a; box-shadow: 0 0 0 2px #f0647a; } }
+/* padrão: teclinhas pixeladas amarelas como o Pac-Man; a repetida fica vermelha como o fantasma */
+[data-theme="padrao"] .bind { border: 0; border-radius: 0; clip-path: var(--pix-in); box-shadow: inset 0 0 0 3px var(--wall); padding: 7px 6px; }
+[data-theme="padrao"] .bind.conflict { animation-name: bind-conflict-pac; }
+@keyframes bind-conflict-pac { 50% { box-shadow: inset 0 0 0 3px #f2432c; background: #3a1630; } }
+[data-theme="padrao"] .chip {
+  font-family: "Press Start 2P", ui-monospace, monospace; font-size: 8px; padding: 6px 7px; border: 0; border-radius: 0;
+  background: #ffcc1a; color: #1a1200;
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px),
+    calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+}
+[data-theme="padrao"] .chip:hover, [data-theme="padrao"] .chip:focus-visible { filter: brightness(1.15); }
+[data-theme="padrao"] .chip.add { background: var(--wall); color: #fff; }
+[data-theme="padrao"] .chip.dup { background: #f2432c; color: #fff; }
+[data-theme="padrao"] .chip.listening { animation-name: chip-listen-pac; }
+@keyframes chip-listen-pac { 50% { background: #5ad1e6; color: #06222a; } }
+[data-theme="padrao"] .warn { background: #f2432c; color: #fff; }
+/* hacker: [teclas] de terminal, só verde e preto; o alerta é um "!" aceso */
+[data-theme="hacker"] .bind { background: #000; border: 1px solid #0f5a24; border-radius: 0; }
+[data-theme="hacker"] .bind-name { font-size: 18px; }
+[data-theme="hacker"] .bind.conflict { animation-name: bind-conflict-hk; }
+@keyframes bind-conflict-hk { 50% { border: 1px dashed var(--accent); background: #032b0e; box-shadow: none; } }
+[data-theme="hacker"] .chip { font-family: var(--font-body); font-size: 18px; padding: 1px 4px; background: #000; color: var(--accent); border: 1px solid var(--accent); border-radius: 0; }
+[data-theme="hacker"] .chip::before { content: "["; } [data-theme="hacker"] .chip::after { content: "]"; }
+[data-theme="hacker"] .chip:hover, [data-theme="hacker"] .chip:focus-visible { background: var(--accent); color: #000; text-shadow: none; }
+[data-theme="hacker"] .chip.add, [data-theme="hacker"] .chip.dup { border-style: dashed; }
+[data-theme="hacker"] .warn { clip-path: none; place-items: center; padding: 0; background: var(--accent); color: #000; font: 16px/1 var(--font-body); text-shadow: none; }
+/* noir: teclas de máquina de escrever (claras, com sombra dura); a linha repetida pisca invertendo as cores */
+[data-theme="noir"] .bind { background: #141414; border: 2px solid #8a8a8a; border-radius: 0; box-shadow: 3px 3px 0 #000; }
+[data-theme="noir"] .bind-name { font-size: 11px; }
+[data-theme="noir"] .bind.conflict { animation-name: bind-conflict-noir; }
+@keyframes bind-conflict-noir { 50% { filter: invert(1); } }
+[data-theme="noir"] .chip {
+  font-family: "Press Start 2P", ui-monospace, monospace; font-size: 8px; padding: 6px; border: 0; border-radius: 0;
+  background: #e6e6e6; color: #000; box-shadow: inset -2px -2px 0 #8a8a8a, 2px 2px 0 #000;
+}
+[data-theme="noir"] .chip:hover, [data-theme="noir"] .chip:focus-visible { background: #fff; }
+[data-theme="noir"] .chip.add { background: #3a3a3a; color: #e6e6e6; box-shadow: inset -2px -2px 0 #222, 2px 2px 0 #000; }
+[data-theme="noir"] .chip.dup { background: #000; color: #fff; box-shadow: inset 0 0 0 2px #fff; }
+[data-theme="noir"] .chip.listening { animation-name: chip-listen-noir; }
+@keyframes chip-listen-noir { 50% { background: #000; color: #fff; } }
+[data-theme="noir"] .warn { clip-path: none; place-items: center; padding: 0; background: #fff; color: #000; box-shadow: 2px 2px 0 #000; }
+/* teclinhas do painel lateral, no mesmo estilo das da tela de Controles de cada tema */
+[data-theme="padrao"] .kc {
+  font-family: "Press Start 2P", ui-monospace, monospace; font-size: 8px; border: 0; border-radius: 0; background: #ffcc1a; color: #1a1200;
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px),
+    calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+}
+[data-theme="hacker"] .kc { font-family: var(--font-body); font-size: 16px; background: #000; color: var(--accent); border: 1px solid var(--accent); border-radius: 0; }
+[data-theme="hacker"] .keys li { padding: 2px 0; } /* fonte de terminal é alta: linhas mais justas para a coluna caber na janela */
+[data-theme="hacker"] .kc { height: 20px; }
+[data-theme="noir"] .kc {
+  font-family: "Press Start 2P", ui-monospace, monospace; font-size: 8px; border: 0; border-radius: 0;
+  background: #e6e6e6; color: #000; box-shadow: inset -2px -2px 0 #8a8a8a, 2px 2px 0 #000;
+}
+[data-theme="noir"] .keys li { font-size: 11px; }
+
+/* fim de jogo animado (tema padrão): camada por cima de tudo; só o menu recebe cliques */
+/* presa ao topo do site (não à tela): a animação acontece onde o jogo está, mesmo se a página estiver
+   rolada para baixo na hora em que a partida acaba; a altura é a da janela, posta pelo script */
+.gameover { position: absolute; top: 0; left: 0; right: 0; height: 100vh; z-index: 20; pointer-events: none; overflow: hidden; }
+.gameover[hidden], .go-menu[hidden] { display: none; }
+#gofx { position: absolute; inset: 0; width: 100%; height: 100%; }
+.go-menu {
+  position: absolute; left: 50%; transform: translate(-50%, 12px);
+  width: min(300px, calc(100% - 32px));
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  pointer-events: auto; opacity: 0; transition: opacity .4s ease-out, transform .4s ease-out;
+}
+.go-menu.show { opacity: 1; transform: translate(-50%, 0); }
+.go-menu p { margin: 0; color: var(--fg); text-align: center; line-height: 1.4; text-shadow: 0 2px 0 #000; }
+.go-menu .actions { max-width: none; }
+/* balão das últimas partidas: sai do botão para a esquerda do menu, com o rabinho apontando para ele
+   (top é posto pelo script na altura do botão); sem espaço do lado (tela estreita), aparece embaixo
+   dos botões com o rabinho para cima. O rabinho fica no envelope, fora da moldura recortada da lista */
+.go-hist {
+  position: absolute; right: calc(100% + 22px); width: 290px; transform: translateY(-50%);
+  transform-origin: right center; animation: hist-pop .22s ease-out; filter: drop-shadow(0 6px 0 rgba(0,0,0,.45));
+}
+.go-hist[hidden] { display: none; }
+.go-hist::after {
+  content: ""; position: absolute; left: 100%; top: 50%; width: 16px; height: 22px; margin-top: -11px;
+  background: var(--hist-tail, var(--line)); clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+.go-hist.below { position: static; width: 100%; transform: none; transform-origin: top center; margin-top: 10px; }
+.go-hist.below::after { left: 50%; top: -14px; width: 22px; height: 14px; margin: 0 0 0 -11px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+@keyframes hist-pop { from { opacity: 0; scale: .8; } }
+.go-menu .history {
+  width: 100%; box-sizing: border-box; max-height: 46vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); padding: 10px 12px;
+}
+[data-theme="padrao"] .go-hist { --hist-tail: var(--wall); }
+[data-theme="hacker"] .go-hist { --hist-tail: #5a5a5a; }
+[data-theme="noir"] .go-hist { --hist-tail: #fff; }
+[data-theme="noir"] .go-menu .history { background: #000; border: 3px solid #fff; color: #e6e6e6; }
+body.go-run .board-wrap { visibility: hidden; }
+/* padrão: tudo vira a massinha da animação (desenhada no lugar exato de cada parte) */
+:root[data-theme="padrao"] body.go-run :is(header, .box, .scorecard, .pad) { visibility: hidden; }
+/* no noir o saco do placar vira desenho na animação do fim de jogo (ele se fecha e é levado) */
+:root[data-theme="noir"] body.go-run .scorecard { visibility: hidden; }
+/* noir: no fim de jogo os botões são sólidos (pretos com borda branca grossa; o primeiro invertido)
+   para não sumirem na rua escura atrás */
+[data-theme="noir"] .go-menu .btn { background: #000; color: #fff; border: 3px solid #fff; box-shadow: 5px 5px 0 #000; }
+[data-theme="noir"] .go-menu .btn:first-child { background: #fff; color: #000; }
+[data-theme="noir"] .go-menu .btn:hover, [data-theme="noir"] .go-menu .btn:focus-visible { background: #fff; color: #000; outline: none; }
+[data-theme="noir"] .go-menu .btn:first-child:hover, [data-theme="noir"] .go-menu .btn:first-child:focus-visible { background: #000; color: #fff; }
+[data-theme="noir"] .go-menu p { color: #a8a8a8; font-size: 11px; line-height: 1.6; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000; } /* informação, não botão: sem caixa e mais apagada */
+
+/* ---------- tema padrão: estética Pac-Man pixelada ----------
+   Botões e painéis com cantos arredondados em degraus de pixel. O elemento em si é a borda
+   (recortada em escadinha, --pix-out); o ::before, 5px para dentro, é o recheio com uma escadinha
+   menor (--pix-in). Botões: uma cor de personagem cada, luz em cima e sombra embaixo.
+   Painéis e tabuleiro: moldura azul das paredes do labirinto. */
+:root[data-theme="padrao"] {
+  --pix-out: polygon(0 10px, 5px 10px, 5px 5px, 10px 5px, 10px 0, calc(100% - 10px) 0, calc(100% - 10px) 5px, calc(100% - 5px) 5px,
+    calc(100% - 5px) 10px, 100% 10px, 100% calc(100% - 10px), calc(100% - 5px) calc(100% - 10px), calc(100% - 5px) calc(100% - 5px),
+    calc(100% - 10px) calc(100% - 5px), calc(100% - 10px) 100%, 10px 100%, 10px calc(100% - 5px), 5px calc(100% - 5px), 5px calc(100% - 10px), 0 calc(100% - 10px));
+  --pix-in: polygon(0 5px, 5px 5px, 5px 0, calc(100% - 5px) 0, calc(100% - 5px) 5px, 100% 5px, 100% calc(100% - 5px),
+    calc(100% - 5px) calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 5px calc(100% - 5px), 0 calc(100% - 5px));
+  --wall: #4a3fc4;
+}
+[data-theme="padrao"] .btn, [data-theme="padrao"] .pad button {
+  --c: #ffcc1a; --edge: #7a5a00; --ink: #1a1200;
+  position: relative; isolation: isolate;
+  font-family: "Press Start 2P", var(--font-display); font-size: 11px; line-height: 1.6; letter-spacing: 0;
+  color: var(--ink); background: var(--edge); border: 0; border-radius: 0; padding: 15px 16px; text-transform: uppercase;
+  clip-path: var(--pix-out);
+  transition: transform .08s steps(2), filter .08s;
+}
+[data-theme="padrao"] .btn::before, [data-theme="padrao"] .pad button::before {
+  content: ""; position: absolute; inset: 5px; z-index: -1; background: var(--c); clip-path: var(--pix-in);
+  box-shadow: inset 0 4px 0 rgba(255,255,255,.4), inset 0 -4px 0 rgba(0,0,0,.25);
+}
+/* cores em sequência: Pac-Man, fantasmas vermelho, azul e rosa, e o laranja */
+[data-theme="padrao"] .actions .btn:nth-child(5n+2), [data-theme="padrao"] .pad button:nth-child(4n+2) { --c: #f2432c; --edge: #6e1208; --ink: #fff; }
+[data-theme="padrao"] .actions .btn:nth-child(5n+3), [data-theme="padrao"] .pad button:nth-child(4n+3) { --c: #5ad1e6; --edge: #10586a; --ink: #06222a; }
+[data-theme="padrao"] .actions .btn:nth-child(5n+4), [data-theme="padrao"] .pad button:nth-child(4n+4) { --c: #f06aa8; --edge: #6e1640; --ink: #fff; }
+[data-theme="padrao"] .actions .btn:nth-child(5n+5) { --c: #f7941d; --edge: #6a3a00; --ink: #1a0d00; }
+[data-theme="padrao"] .actions .btn:nth-child(5n+2), [data-theme="padrao"] .actions .btn:nth-child(5n+4),
+[data-theme="padrao"] .pad button:nth-child(4n+2), [data-theme="padrao"] .pad button:nth-child(4n+4) { text-shadow: 2px 2px 0 rgba(0,0,0,.45); }
+[data-theme="padrao"] .actions { gap: 10px; filter: drop-shadow(0 4px 0 rgba(0,0,0,.65)); }
+[data-theme="padrao"] .btn.mode small { font-family: var(--font-body); font-size: 12px; text-transform: none; color: var(--ink); opacity: .85; text-shadow: none; }
+[data-theme="padrao"] .btn:hover, [data-theme="padrao"] .btn.mode:hover { filter: brightness(1.12); transform: translateY(-2px); }
+[data-theme="padrao"] .btn:active, [data-theme="padrao"] .pad button:active { transform: translateY(2px); background: var(--edge); }
+[data-theme="padrao"] .btn:focus-visible, [data-theme="padrao"] .pad button:focus-visible { outline: none; }
+/* em foco pelo teclado, ou o tema em uso: contorno branco por dentro */
+[data-theme="padrao"] .btn:focus-visible::before, [data-theme="padrao"] .pad button:focus-visible::before,
+[data-theme="padrao"] .btn.mode.on::before { box-shadow: inset 0 0 0 3px #fff, inset 0 -4px 0 rgba(0,0,0,.25); }
+[data-theme="padrao"] .pad button { font-size: 12px; padding: 16px 0; }
+/* setas e símbolos não existem na fonte de fliperama e saem miudinhos: aumenta */
+[data-theme="padrao"] .pad button:not(#b-hold) { font-size: 22px; line-height: 1; padding: 13px 0; }
+
+[data-theme="padrao"] .box, [data-theme="padrao"] .scorecard, [data-theme="padrao"] .go-menu .history {
+  position: relative; isolation: isolate;
+  background: var(--wall); border: 0; border-radius: 0; padding: 15px 16px; clip-path: var(--pix-out);
+}
+/* recheio do painel com o filete escuro por dentro, como as paredes duplas do labirinto */
+[data-theme="padrao"] .box::before, [data-theme="padrao"] .scorecard::before, [data-theme="padrao"] .go-menu .history::before {
+  content: ""; position: absolute; inset: 5px; z-index: -1; background: var(--panel); clip-path: var(--pix-in);
+  box-shadow: inset 0 0 0 2px #0e0b38;
+}
+[data-theme="padrao"] .board-wrap { padding: 6px; background: var(--wall); clip-path: var(--pix-out); }
+[data-theme="padrao"] #board { border: 0; border-radius: 0; box-shadow: 0 0 0 3px #0e0b38; }
+[data-theme="padrao"] .overlay { inset: 6px; border-radius: 0; }
+@media (max-width: 640px) {
+  [data-theme="padrao"] .box { padding: 12px; }
+}
+
+/* ---------- tema hacker: janelas do cmd e botões de terminal ----------
+   Painéis como janelas do cmd.exe: barra de título escura com o caminho do cmd (cortado com "…"
+   quando não cabe), ícone e os botões ─ □ ✕; cada rótulo vira um prompt "C:\>" */
+[data-theme="hacker"] .box, [data-theme="hacker"] .scorecard, [data-theme="hacker"] .go-menu .history {
+  position: relative; background: #0c0c0c; border: 1px solid #5a5a5a; padding: 32px 10px 10px;
+  box-shadow: 0 0 0 1px #000, 0 10px 28px rgba(0,0,0,.7);
+}
+[data-theme="hacker"] .box::before, [data-theme="hacker"] .scorecard::before, [data-theme="hacker"] .go-menu .history::before {
+  content: "C:\\WINDOWS\\system32\\cmd.exe"; position: absolute; left: 0; right: 0; top: 0; height: 22px;
+  box-sizing: border-box; padding: 0 58px 0 24px; border-bottom: 1px solid #333;
+  color: #e6e6e6; font: 15px/22px VT323, monospace; text-shadow: none; letter-spacing: 0; text-transform: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* ícone: telinha preta com moldura cinza */
+  background: linear-gradient(#0c0c0c, #0c0c0c) 8px 8px / 10px 7px no-repeat, linear-gradient(#c8c8c8, #c8c8c8) 7px 6px / 12px 10px no-repeat, #1f1f1f;
+}
+[data-theme="hacker"] .box::after, [data-theme="hacker"] .scorecard::after, [data-theme="hacker"] .go-menu .history::after {
+  content: "─ □ ✕"; position: absolute; top: 0; right: 7px; height: 22px;
+  color: #e6e6e6; font: 13px/22px system-ui, sans-serif; text-shadow: none; word-spacing: 5px;
+}
+[data-theme="hacker"] .box .label, [data-theme="hacker"] .scorecard .label {
+  font-family: var(--font-body); font-size: 17px; letter-spacing: 0; text-transform: none; color: #c8c8c8; text-shadow: none;
+}
+[data-theme="hacker"] .box .label::before, [data-theme="hacker"] .scorecard .label::before { content: "C:\\>"; color: #8a8a8a; }
+@media (max-width: 640px) {
+  [data-theme="hacker"] .box { padding: 30px 8px 8px; }
+}
+/* botões de terminal: "> " na frente, cor do comando "color" do cmd, invertem no foco com cursor piscando */
+[data-theme="hacker"] .btn:not(.mode) {
+  --k: var(--accent);
+  font-family: var(--font-body); font-size: 21px; letter-spacing: 1px; line-height: 1.1; text-transform: uppercase; text-align: left;
+  background: #000; color: var(--k); border: 1px solid var(--k); padding: 8px 14px;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--k) 55%, transparent);
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--k) 25%, transparent);
+}
+[data-theme="hacker"] .btn:not(.mode)::before { content: "> "; }
+[data-theme="hacker"] .btn:not(.mode):hover, [data-theme="hacker"] .btn:not(.mode):focus-visible {
+  background: var(--k); color: #000; text-shadow: none; filter: none; outline: none;
+}
+[data-theme="hacker"] .btn:not(.mode):hover::after, [data-theme="hacker"] .btn:not(.mode):focus-visible::after { content: "_"; animation: blink 1s steps(1) infinite; }
+/* só verde e preto: o primeiro botão de cada menu vem aceso (verde com letra preta), os outros só com contorno */
+[data-theme="hacker"] .actions .btn:not(.mode):first-child { background: var(--k); color: #000; text-shadow: none; }
+[data-theme="hacker"] .actions .btn:not(.mode):first-child:hover, [data-theme="hacker"] .actions .btn:not(.mode):first-child:focus-visible {
+  background: #000; color: var(--k); text-shadow: 0 0 6px rgba(57,255,20,.55);
+}
+/* tabuleiro como o programa rodando dentro de uma janela do cmd: mesma barra de título dos painéis */
+[data-theme="hacker"] .board-wrap { background: #0c0c0c; border: 1px solid #5a5a5a; padding-top: 22px; box-shadow: 0 0 0 1px #000, 0 10px 28px rgba(0,0,0,.7); }
+[data-theme="hacker"] .board-wrap::before {
+  content: "C:\\WINDOWS\\system32\\cmd.exe - chuva-de-blocos.exe"; position: absolute; left: 0; right: 0; top: 0; height: 22px; z-index: 1;
+  box-sizing: border-box; padding: 0 64px 0 24px; border-bottom: 1px solid #333;
+  color: #e6e6e6; font: 15px/22px VT323, monospace; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(#0c0c0c, #0c0c0c) 8px 8px / 10px 7px no-repeat, linear-gradient(#c8c8c8, #c8c8c8) 7px 6px / 12px 10px no-repeat, #1f1f1f;
+}
+[data-theme="hacker"] .board-wrap::after {
+  content: "─ □ ✕"; position: absolute; top: 0; right: 8px; height: 22px; z-index: 1;
+  color: #e6e6e6; font: 14px/22px system-ui, sans-serif; text-shadow: none; word-spacing: 7px;
+}
+[data-theme="hacker"] #board { border: 0; box-shadow: none; }
+[data-theme="hacker"] .overlay { inset: 22px 0 0 0; }
+
+/* ---------- tema hacker: fim de jogo ----------
+   a tela pisca, os painéis "desligam da tomada" (achatam até virar uma linha clara e somem no meio)
+   e a máscara aparece com o balão; o balão e o menu bugam de tempos em tempos (classe .glitch) */
+@keyframes hk-flicker {
+  0%, 100% { opacity: 1; filter: none; } 10% { opacity: .15; } 20% { opacity: 1; filter: brightness(2.2); } 32% { opacity: .4; }
+  45% { opacity: 1; } 55% { opacity: .1; } 63% { opacity: 1; filter: brightness(1.8) contrast(1.4); } 78% { opacity: .5; } 88% { opacity: 1; }
+}
+body.hk-flicker .wrap, body.hk-flicker #bgfx { animation: hk-flicker .9s steps(1); }
+@keyframes crt-off {
+  0% { transform: scale(1, 1); filter: brightness(1); opacity: 1; }
+  55% { transform: scale(1, .006); filter: brightness(4); opacity: 1; }
+  80% { transform: scale(.2, .006); filter: brightness(6); opacity: 1; }
+  100% { transform: scale(0, 0); filter: brightness(6); opacity: 0; }
+}
+body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .pad { animation: crt-off .65s ease-in forwards; }
+.hk-bubble {
+  position: absolute; pointer-events: none; box-sizing: border-box;
+  background: #000; border: 3px solid var(--accent); color: var(--accent);
+  font-family: VT323, ui-monospace, monospace; font-size: 96px; line-height: .95; padding: .1em .28em .16em;
+  left: 0; right: 0; margin-inline: auto; width: fit-content; max-width: calc(100% - 32px); /* centralizado na tela */
+  white-space: nowrap; text-shadow: 0 0 14px rgba(57,255,20,.75);
+  box-shadow: 0 0 26px rgba(57,255,20,.35), inset 0 0 20px rgba(57,255,20,.2);
+}
+.hk-bubble[hidden] { display: none; }
+/* rabinho do balão, saindo de baixo à esquerda em direção à máscara */
+.hk-bubble::before { content: ""; position: absolute; left: -29px; bottom: 12px; width: 26px; height: 24px; background: var(--accent); clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+/* em tela estreita a máscara fica em cima: o rabinho sai do alto à esquerda, apontando para ela */
+.hk-bubble.up::before { left: 16px; top: -27px; bottom: auto; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+/* nos bugs de idioma o texto pode ser comprido demais: aí quebra linha (o balão cresce para cima) */
+.gameover.glitch .hk-bubble { white-space: normal; }
+@keyframes hk-jitter { 0% { translate: -3px 0; } 33% { translate: 4px 1px; } 66% { translate: -1px -2px; } 100% { translate: 2px 0; } }
+.gameover.glitch .hk-bubble, .gameover.glitch .go-menu > * { animation: hk-jitter .12s steps(1) infinite; text-shadow: -2px 0 #0f5a24, 2px 0 #b6ffb0; }
+/* o labirinto do fundo apaga quando a partida acaba */
+/* o fundo apaga bem quando a partida acaba, para o GAME OVER e os botões se destacarem */
+:root[data-theme="padrao"] body.go-run #bgfx { opacity: .1; transition: opacity .9s ease-out; }
+:root[data-theme="noir"] body.go-run #bgfx { opacity: .22; transition: opacity 1.2s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .popup.show { animation-duration: 1ms; }
   [data-theme="hacker"] body::after, [data-theme="hacker"] h1::after, [data-theme="hacker"] .overlay h2::after { animation: none; }
@@ -255,7 +641,7 @@ h1 span { color: var(--accent); }
 <div class="wrap">
   <header>
     <h1>Chuva de <span>Blocos</span></h1>
-    <div class="hint">Enter começa · P pausa · Esc volta ao início</div>
+    <div class="hint" id="hint">Enter começa · P pausa · Esc volta ao início</div>
   </header>
 
   <div class="game">
@@ -277,6 +663,7 @@ h1 span { color: var(--accent); }
         <div class="overlay" id="overlay">
           <h2 id="ovTitle">Bem-vindo!</h2>
           <p id="ovText">Encaixe as peças e complete linhas. A cada 10 linhas o nível sobe e tudo cai mais rápido.</p>
+          <div class="ov-extra" id="ovExtra"></div>
           <div class="actions" id="ovActions"></div>
         </div>
       </div>
@@ -297,7 +684,7 @@ h1 span { color: var(--accent); }
       </div>
       <div class="box help">
         <div class="label">Controles</div>
-        <ul class="keys">
+        <ul class="keys" id="keysHelp">
           <li><b>← →</b> mover</li>
           <li><b>↓</b> descer</li>
           <li><b>↑ X</b> girar</li>
@@ -320,6 +707,47 @@ h1 span { color: var(--accent); }
     <button type="button" id="b-down" data-a="down">↓</button>
     <button type="button" id="b-right" data-a="right">→</button>
     <button type="button" id="b-drop" data-a="drop">⤓</button>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="foot-grid">
+    <section class="foot-brand">
+      <p class="foot-logo">Chuva de <span>Blocos</span></p>
+      <p>Jogo de encaixar peças no navegador, com três temas, dois modos de jogo e controles do seu jeito. Sem cadastro e sem anúncios.</p>
+      <p class="foot-small">Versão 1.0</p>
+    </section>
+    <nav class="foot-col" aria-label="Atalhos do jogo">
+      <h2>Jogo</h2>
+      <ul>
+        <li><button type="button" data-go="modes">Jogar</button></li>
+        <li><button type="button" data-go="themes">Temas</button></li>
+        <li><button type="button" data-go="controls">Controles</button></li>
+      </ul>
+    </nav>
+    <section class="foot-col">
+      <h2>Contato</h2>
+      <ul>
+        <li><a href="https://github.com/FreakyRocky" target="_blank" rel="noopener">GitHub: FreakyRocky</a></li>
+        <li><a href="https://github.com/FreakyRocky/Tetris-pessoal" target="_blank" rel="noopener">Código-fonte</a></li>
+        <li><a href="mailto:morfadod@gmail.com">morfadod@gmail.com</a></li>
+        <li><a href="mailto:morfadod@gmail.com?subject=Chuva%20de%20Blocos%20-%20problema">Reportar um problema</a></li>
+      </ul>
+    </section>
+  </div>
+  <div class="foot-bottom">
+    <p>© 2026 Criado por <a href="https://github.com/FreakyRocky" target="_blank" rel="noopener">FreakyRocky</a> · Feito com HTML, CSS e JavaScript.</p>
+    <p>Recordes, histórico, tema e controles ficam salvos só neste navegador.</p>
+  </div>
+</footer>
+
+<div class="gameover" id="gameover" hidden>
+  <canvas id="gofx" aria-hidden="true"></canvas>
+  <div class="hk-bubble" id="hkBubble" hidden></div>
+  <div class="go-menu" id="goMenu" role="dialog" aria-label="Fim de jogo" hidden>
+    <p id="goText"></p>
+    <div class="actions" id="goActions"></div>
+    <div class="go-hist" id="goHistWrap" hidden><ol class="history" id="goHistory" aria-label="Últimas partidas"></ol></div>
   </div>
 </div>
 
@@ -528,6 +956,7 @@ h1 span { color: var(--accent); }
     hud();
   }
   function start(){
+    closeGoFx();
     state = "playing";
     overlay.hidden = true;
     last = performance.now();
@@ -543,10 +972,16 @@ h1 span { color: var(--accent); }
     try { localStorage.setItem("chuva-historico", JSON.stringify(history)); } catch (e) {}
     renderHistory();
     hud();
-    showOverlay("Fim de jogo", `Você fez ${score.toLocaleString("pt-BR")} pontos e ${lines} linhas.`, [
+    const text = `Você fez ${score.toLocaleString("pt-BR")} pontos e ${lines} linhas.`;
+    const buttons = [
       { label: "Jogar de novo", action: () => { prepare(); start(); } },
-      { label: "Modos", cls: "btn ghost", action: showModes }
-    ]);
+      { label: "Trocar modo", cls: "btn ghost", action: showModes },
+      { label: "Menu principal", cls: "btn ghost", action: goHome }
+    ];
+    if (theme === "padrao" && !reduceMotion) startGoFx(text, buttons);
+    else if (theme === "hacker" && !reduceMotion) startHackFx(text, buttons);
+    else if (theme === "noir" && !reduceMotion) startNoirFx(text, buttons);
+    else showOverlay("Fim de jogo", text, buttons);
   }
   function togglePause(){
     if (state === "playing") {
@@ -577,6 +1012,7 @@ h1 span { color: var(--accent); }
     state = "menu";
     showOverlay("Configurações", "Ajuste o jogo do seu jeito.", [
       { label: "Temas", sub: "Cores do jogo.", cls: "btn mode", action: showThemes },
+      { label: "Controles", sub: "Troque as teclas e use o mouse.", cls: "btn mode", action: () => { listen = null; showControls(); } },
       { label: "Voltar", cls: "btn ghost", action: showWelcome }
     ]);
   }
@@ -598,6 +1034,7 @@ h1 span { color: var(--accent); }
     if (id === "hacker" && !reduceMotion) hkT = 0; // o roteiro do hacker sempre começa do binário
     try { localStorage.setItem("chuva-tema", id); } catch (e) {}
     fitBoard();
+    paintSack(); // o placar do noir é o saco de dinheiro; nos outros temas tira a pintura
   }
   function showModes(){
     state = "menu";
@@ -623,16 +1060,22 @@ h1 span { color: var(--accent); }
       { label: "Trocar dificuldade", cls: "btn ghost", action: () => pickMode(mode) }
     ]);
   }
-  function showOverlay(t, txt, buttons){
+  // extra: conteúdo opcional entre o texto e os botões (a lista da tela de Controles)
+  function showOverlay(t, txt, buttons, extra){
+    closeGoFx();
     ovTitle.textContent = t; ovText.textContent = txt;
-    ovActions.replaceChildren(...buttons.map(b => {
+    $("ovExtra").replaceChildren(...(extra ? [extra] : []));
+    ovActions.replaceChildren(...makeButtons(buttons));
+    overlay.hidden = false;
+  }
+  function makeButtons(buttons){
+    return buttons.map(b => {
       const el = document.createElement("button");
       el.type = "button"; el.className = b.cls || "btn"; el.textContent = b.label;
       if (b.sub) { const s = document.createElement("small"); s.textContent = b.sub; el.append(s); }
-      el.addEventListener("click", () => { el.blur(); b.action(); });
+      el.addEventListener("click", () => { el.blur(); b.action(el); });
       return el;
-    }));
-    overlay.hidden = false;
+    });
   }
 
   function showPopup(text, combo){
@@ -642,13 +1085,14 @@ h1 span { color: var(--accent); }
     popup.classList.remove("show"); void popup.offsetWidth; popup.classList.add("show");
   }
   // histórico das últimas partidas (a mais recente em cima); recordes batidos ganham ★
-  function renderHistory(){
-    const list = $("history");
+  // no placar só as 3 últimas (para caber na tela sem cortar); a lista do fim de jogo mostra todas as guardadas
+  function renderHistory(){ $("history").replaceChildren(...historyItems().slice(0, 3)); }
+  function historyItems(){
     if (!history.length) {
       const li = document.createElement("li"); li.textContent = "Nenhuma partida ainda.";
-      list.replaceChildren(li); return;
+      return [li];
     }
-    list.replaceChildren(...history.map(h => {
+    return history.map(h => {
       const li = document.createElement("li");
       if (h.rec) li.className = "rec";
       const pts = document.createElement("span"), b = document.createElement("b");
@@ -658,7 +1102,7 @@ h1 span { color: var(--accent); }
       info.textContent = `${MODES[h.m] ? MODES[h.m].name : ""} · ${DIFF_NAMES[h.d] || ""} · ${h.l} lin`;
       li.append(pts, info);
       return li;
-    }));
+    });
   }
   function hud(){
     $("score").textContent = score.toLocaleString("pt-BR");
@@ -690,12 +1134,169 @@ h1 span { color: var(--accent); }
     }
     if (a === "down") held.down = false;
   }
-  const KEYMAP = {
-    ArrowLeft:"left", ArrowRight:"right", ArrowDown:"down", ArrowUp:"cw",
-    KeyX:"cw", KeyZ:"ccw", Space:"drop", KeyC:"hold", ShiftLeft:"hold", ShiftRight:"hold",
-    KeyP:"pause", Escape:"pause"
+  // ---------- teclas e botões do mouse de cada função (o jogador pode trocar em Configurações → Controles) ----------
+  // Cada função tem uma lista de entradas: "key:<código da tecla>" ou "mouse:<botão>". Uma mesma entrada
+  // pode estar em mais de uma função (aí faz as duas coisas, e a tela de Controles avisa piscando).
+  const ACTIONS = [
+    ["left", "Mover para a esquerda", "esquerda"], ["right", "Mover para a direita", "direita"],
+    ["down", "Descer mais rápido", "descer"], ["drop", "Derrubar", "derrubar"],
+    ["cw", "Girar", "girar"], ["ccw", "Girar ao contrário", "girar ao contrário"],
+    ["hold", "Guardar peça", "guardar"], ["pause", "Pausar", "pausar"]
+  ];
+  const DEFAULT_BINDS = {
+    left: ["key:ArrowLeft"], right: ["key:ArrowRight"], down: ["key:ArrowDown"], drop: ["key:Space"],
+    cw: ["key:ArrowUp", "key:KeyX"], ccw: ["key:KeyZ"], hold: ["key:KeyC", "key:ShiftLeft"],
+    pause: ["key:KeyP", "key:Escape"]
   };
+  const KEY_NAMES = {
+    Space: "Espaço", ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Escape: "Esc", Enter: "Enter",
+    Backspace: "Backspace", Tab: "Tab", ShiftLeft: "Shift esq.", ShiftRight: "Shift dir.", ControlLeft: "Ctrl esq.",
+    ControlRight: "Ctrl dir.", AltLeft: "Alt", AltRight: "Alt Gr", MetaLeft: "Win", CapsLock: "Caps Lock", Delete: "Del",
+    Insert: "Ins", Home: "Home", End: "End", PageUp: "Pg Up", PageDown: "Pg Down"
+  };
+  const MAX_BINDS = 2; // no máximo duas teclas (ou botões) por função
+  const isArrow = name => /^[←→↑↓]$/.test(name); // setas ganham fonte maior para serem reconhecíveis
+  const MOUSE_NAMES = ["Mouse esq.", "Mouse meio", "Mouse dir.", "Mouse lateral 1", "Mouse lateral 2"];
+  // teclas de símbolo mudam de lugar conforme o teclado (ABNT, americano...): guarda o que a tecla
+  // escreveu quando o jogador a escolheu, e mostra isso
+  let keyLabels = {};
+  function inputName(inp){
+    const [kind, v] = inp.split(":");
+    if (kind === "mouse") return MOUSE_NAMES[v] || `Mouse ${+v + 1}`;
+    return KEY_NAMES[v] || keyLabels[v] || v.replace(/^Key/, "").replace(/^Digit/, "").replace(/^Numpad/, "Num ");
+  }
+  let binds = JSON.parse(JSON.stringify(DEFAULT_BINDS)), inputMap = new Map();
+  try {
+    const saved = JSON.parse(localStorage.getItem("chuva-controles") || "null");
+    if (saved && typeof saved === "object") {
+      for (const [a] of ACTIONS) if (Array.isArray(saved[a])) binds[a] = saved[a].filter(s => typeof s === "string").slice(0, MAX_BINDS);
+      if (saved.labels && typeof saved.labels === "object") keyLabels = saved.labels;
+    }
+  } catch (e) {}
+  // entrada → funções que ela aciona; repete o mapa sempre que as associações mudam
+  function rebuildInputs(){
+    inputMap = new Map();
+    for (const [a] of ACTIONS) for (const inp of binds[a]) inputMap.set(inp, [...(inputMap.get(inp) || []), a]);
+    renderKeysHelp();
+  }
+  const conflicts = () => new Set([...inputMap].filter(([, acts]) => acts.length > 1).map(([inp]) => inp));
+  function saveBinds(){ try { localStorage.setItem("chuva-controles", JSON.stringify({ ...binds, labels: keyLabels })); } catch (e) {} rebuildInputs(); }
+  // painel "Controles" ao lado do tabuleiro (uma linha por função: as teclas como teclinhas e o que
+  // fazem) e a dica do topo seguem as associações atuais
+  function keycap(name){
+    const k = document.createElement("span");
+    k.className = "kc" + (isArrow(name) ? " arrow" : ""); k.textContent = name;
+    return k;
+  }
+  function renderKeysHelp(){
+    $("keysHelp").replaceChildren(...ACTIONS.map(([a, , short]) => {
+      const li = document.createElement("li"), keys = document.createElement("span"), fn = document.createElement("span");
+      keys.className = "kcs"; fn.className = "kfn"; fn.textContent = short;
+      if (binds[a].length) keys.append(...binds[a].map(i => keycap(inputName(i)))); else keys.textContent = "—";
+      li.append(keys, fn);
+      return li;
+    }));
+    const p = binds.pause[0];
+    $("hint").textContent = `Enter começa${p ? ` · ${inputName(p)} pausa` : ""} · Esc volta ao início`;
+  }
+
+  // tela de Controles: uma linha por função, com as teclas dela como "teclinhas" clicáveis e um "+".
+  // Clicou numa teclinha: ela pisca "Aperte…" e a próxima tecla ou botão do mouse fica no lugar dela.
+  // Esc cancela; Backspace tira essa tecla da função. Entrada repetida em duas funções: as linhas piscam
+  // com um alerta de cada lado.
+  let listen = null, swallowClick = false; // listen = { action, index } (index -1 = adicionar)
+  function showControls(){
+    state = "menu";
+    const dup = conflicts(), scroll = overlay.scrollTop;
+    showOverlay("Controles",
+      listen ? "Aperte a nova tecla ou um botão do mouse. Esc cancela · Backspace remove."
+        : dup.size ? "Tem tecla repetida em duas funções: ela vai fazer as duas coisas ao mesmo tempo."
+        : "Clique numa tecla para trocar por outra (vale botão do mouse também). Até 2 por função.",
+      // "Voltar" primeiro: Enter aciona o primeiro botão, e não pode apagar as teclas do jogador sem querer
+      [
+        { label: "Voltar", action: () => { listen = null; showSettings(); } },
+        { label: "Restaurar padrão", cls: "btn ghost", action: () => { binds = JSON.parse(JSON.stringify(DEFAULT_BINDS)); listen = null; saveBinds(); showControls(); } }
+      ],
+      bindsList(dup));
+    overlay.scrollTop = scroll; // redesenhar a lista não pode pular a rolagem
+  }
+  function bindsList(dup){
+    const list = document.createElement("div");
+    list.className = "binds";
+    for (const [a, name] of ACTIONS) {
+      const row = document.createElement("div"), conflict = binds[a].some(i => dup.has(i));
+      row.className = "bind" + (conflict ? " conflict" : "");
+      const warn = () => { const w = document.createElement("span"); w.className = "warn"; w.textContent = "!"; w.setAttribute("aria-hidden", "true"); return w; };
+      const label = document.createElement("span"); label.className = "bind-name"; label.textContent = name;
+      const chips = document.createElement("span"); chips.className = "chips";
+      const chip = (text, index, cls) => {
+        const c = document.createElement("button");
+        c.type = "button"; c.className = "chip" + (cls ? " " + cls : "") + (isArrow(text) ? " arrow" : "");
+        const on = listen && listen.action === a && listen.index === index;
+        if (on) c.classList.replace("arrow", "listening") || c.classList.add("listening");
+        c.textContent = on ? "Aperte…" : text;
+        c.setAttribute("aria-label", index < 0 ? `Adicionar tecla para ${name}` : `Trocar ${text} em ${name}`);
+        c.addEventListener("click", () => { listen = { action: a, index }; showControls(); });
+        return c;
+      };
+      binds[a].forEach((inp, i) => chips.append(chip(inputName(inp), i, dup.has(inp) ? "dup" : "")));
+      if (binds[a].length < MAX_BINDS) chips.append(chip("+", -1, "add")); // com 2 teclas, só dá para trocar
+      row.append(warn(), label, chips, warn());
+      list.append(row);
+    }
+    return list;
+  }
+  function setBind(inp){
+    const list = binds[listen.action];
+    if (listen.index >= 0) list[listen.index] = inp; else if (list.length < MAX_BINDS) list.push(inp);
+    binds[listen.action] = [...new Set(list)]; // a mesma tecla duas vezes na mesma função não faz sentido
+    listen = null; saveBinds(); showControls();
+  }
+  // ouvindo uma tecla nova: pega antes de qualquer outro atalho (inclusive Enter e Esc dos menus)
+  window.addEventListener("keydown", e => {
+    if (!listen) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.code === "Escape") { listen = null; showControls(); return; }
+    if (e.code === "Backspace") {
+      if (listen.index >= 0) binds[listen.action].splice(listen.index, 1);
+      listen = null; saveBinds(); showControls(); return;
+    }
+    if (e.key && e.key.length === 1 && e.key !== " ") keyLabels[e.code] = e.key.toUpperCase();
+    setBind("key:" + e.code);
+  }, true);
+  window.addEventListener("mousedown", e => {
+    if (!listen) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    // o clique que vem depois não pode apertar o botão que estiver embaixo (com prazo, caso ele não venha)
+    swallowClick = true; setTimeout(() => { swallowClick = false; }, 700);
+    setBind("mouse:" + e.button);
+  }, true);
+  for (const type of ["click", "auxclick", "contextmenu", "mouseup"]) window.addEventListener(type, e => {
+    if (!swallowClick) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (type === "click" || type === "auxclick" || type === "contextmenu") setTimeout(() => { swallowClick = false; }, 0);
+  }, true);
+
+  // botões do mouse no jogo: só fora dos botões da tela (para os menus e o controle de toque continuarem
+  // funcionando); os laterais não podem voltar/avançar a página e o direito não abre menu
+  const mouseActs = e => (state === "playing" || state === "paused") && !e.target.closest("button, .pad") ? inputMap.get("mouse:" + e.button) : null;
+  document.addEventListener("mousedown", e => { const acts = mouseActs(e); if (acts) { e.preventDefault(); acts.forEach(press); } });
+  document.addEventListener("mouseup", e => {
+    const acts = inputMap.get("mouse:" + e.button);
+    if (acts) { acts.forEach(release); if (e.button > 2) e.preventDefault(); }
+  });
+  document.addEventListener("auxclick", e => { if (inputMap.has("mouse:" + e.button)) e.preventDefault(); });
+  document.addEventListener("contextmenu", e => { if (mouseActs(e)) e.preventDefault(); });
+
   document.addEventListener("keydown", e => {
+    // no fim de jogo animado, Enter pula a animação; com o menu já na tela, aciona o botão
+    if (e.code === "Enter" && goFx) {
+      e.preventDefault();
+      if (!goFx.menu) { skipGoFx(); return; }
+      const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest("#goActions button");
+      (focused || $("goActions").querySelector("button"))?.click();
+      return;
+    }
     // Enter aciona o botão em foco no menu, ou o primeiro botão da tela
     if (e.code === "Enter" && !overlay.hidden) {
       e.preventDefault();
@@ -705,15 +1306,28 @@ h1 span { color: var(--accent); }
     }
     // Esc: jogando pausa (com a opção "Voltar ao início"); pausado retoma; em qualquer menu volta ao início
     if (e.code === "Escape" && state !== "playing" && state !== "paused") { e.preventDefault(); goHome(); return; }
-    const a = KEYMAP[e.code];
-    if (!a) return;
+    const acts = inputMap.get("key:" + e.code);
+    if (!acts) return;
     e.preventDefault();
     if (e.repeat) return;
-    press(a);
+    acts.forEach(press);
   });
-  document.addEventListener("keyup", e => { const a = KEYMAP[e.code]; if (a) release(a); });
+  document.addEventListener("keyup", e => { const acts = inputMap.get("key:" + e.code); if (acts) acts.forEach(release); });
+  rebuildInputs();
   window.addEventListener("blur", () => { held.left = held.right = held.down = false; dasDir = 0; if (state === "playing") togglePause(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden && state === "playing") togglePause(); });
+
+  // atalhos do rodapé: sobem a página até o jogo e abrem o menu pedido; no meio de uma partida só pausam
+  // (para não jogar fora a partida), e durante a animação do fim de jogo esperam o menu aparecer
+  document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    if (state === "playing") { togglePause(); return; }
+    if (state === "paused" || (goFx && !goFx.menu)) return;
+    const go = b.dataset.go;
+    if (go === "themes") showThemes();
+    else if (go === "controls") { listen = null; showControls(); }
+    else showModes();
+  }));
 
   document.querySelectorAll("#pad button").forEach(b => {
     const a = b.dataset.a;
@@ -1081,20 +1695,450 @@ h1 span { color: var(--accent); }
   window.addEventListener("resize", () => { clearTimeout(fxResize); fxResize = setTimeout(() => { buildFx(); buildNoir(); buildHacker(); }, 200); });
   buildFx();
 
-  // ---------- fundo do tema noir: uma rua à noite com um detetive andando ----------
-  // O cenário parado (céu, lua, árvores, calçada, postes e bancos) é desenhado uma vez numa camada;
-  // a cada quadro entram os pombos, o detetive e por cima a luz dos postes (somada, em "lighter").
-  // O detetive anda de um lado pro outro e, ao passar por um banco, às vezes senta um pouco.
-  // Visual de fliperama antigo: tudo é desenhado num canvas de baixa resolução (cada pixel vira
+  // ---------- fim de jogo do tema padrão ----------
+  // Tudo (título, tabuleiro, painéis e placar) vira uma massinha só: as partes se juntam no centro e
+  // são sovadas juntas até virar uma bola colorida; um Pac-Man gigante entra pela direita, come a bola
+  // inteira e some pela esquerda; depois "GAME OVER" cai letra por letra, cada letra um bichinho do
+  // Pac-Man, e o menu aparece.
+  const gameoverEl = $("gameover"), gofx = $("gofx"), gctx = gofx.getContext("2d"), goMenu = $("goMenu");
+  const GO_PAC_AT = 1700, GO_PAC_MS = 2600, GO_DROP = 130, GO_FALL = 600;
+  const GO_LETTERS_AT = GO_PAC_AT + GO_PAC_MS + 150;
+  const GO_MENU_AT = GO_LETTERS_AT + 7 * GO_DROP + GO_FALL + 200;
+  // ghost: fantasma (saia em zigue-zague e olhos); fruit: fruta (cabinho e folha); pac: o próprio Pac-Man;
+  // scared: fantasma assustado (azul, cara de medo)
+  const GO_LETTERS = [
+    { ch: "G", kind: "ghost", color: "#f2432c" },
+    { ch: "A", kind: "fruit", color: "#f7941d" },
+    { ch: "M", kind: "ghost", color: "#5ad1e6" },
+    { ch: "E", kind: "fruit", color: "#b57cf0" },
+    { ch: "O", kind: "pac", color: "#ffcc1a" },
+    { ch: "V", kind: "ghost", color: "#f06aa8" },
+    { ch: "E", kind: "fruit", color: "#6fd38a" },
+    { ch: "R", kind: "scared", color: "#2b3bd6" }
+  ];
+  const GO_FONT = '"Press Start 2P", "Silkscreen", monospace';
+  let goFx = null, goW = 0, goH = 0;
+  document.fonts?.load(`40px ${GO_FONT}`).catch(() => {});
+
+  const easeOutBack = p => 1 + 2.70158 * Math.pow(p - 1, 3) + 1.70158 * Math.pow(p - 1, 2);
+  function bounceOut(p){
+    const n = 7.5625, d = 2.75;
+    if (p < 1 / d) return n * p * p;
+    if (p < 2 / d) return n * (p -= 1.5 / d) * p + .75;
+    if (p < 2.5 / d) return n * (p -= 2.25 / d) * p + .9375;
+    return n * (p -= 2.625 / d) * p + .984375;
+  }
+  // posição de um elemento na página (não na tela): a camada do fim de jogo fica no topo do site, então
+  // tudo que a animação mede precisa descontar o quanto a página está rolada
+  const pageRect = el => { const r = el.getBoundingClientRect(); return new DOMRect(r.left + scrollX, r.top + scrollY, r.width, r.height); };
+  function sizeGo(){
+    const dpr = window.devicePixelRatio || 1;
+    goW = document.documentElement.clientWidth; goH = window.innerHeight;
+    gameoverEl.style.height = goH + "px";
+    gofx.width = Math.round(goW * dpr); gofx.height = Math.round(goH * dpr);
+    gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function startGoFx(text, buttons){
+    drawBoard();
+    const r = pageRect(board);
+    // cada pedaço da tela (título, tabuleiro, painéis, placar e o controle de toque) vira uma "foto";
+    // as fotos ficam exatamente onde os de verdade estavam (que somem), e é com elas que a massinha é feita
+    const pieces = [...document.querySelectorAll("header, .box, .scorecard, .pad, .board-wrap")]
+      .filter(el => el.getBoundingClientRect().width)
+      .map((el, i) => ({
+        img: rasterize(el), r: pageRect(el), board: el.classList.contains("board-wrap"),
+        off: [(Math.random() - .5) * r.width * .5, (Math.random() - .5) * r.width * .5], rot: (Math.random() - .5) * 1.2, i
+      }));
+    goFx = {
+      t: 0, cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width, h: r.height, pieces,
+      bits: [], menu: false, letters: null, layoutKey: "", vanish: []
+    };
+    fillGoMenu(text, buttons);
+    gameoverEl.hidden = false;
+    document.body.classList.add("go-run");
+    sizeGo();
+  }
+  // "foto" de um pedaço da página num canvas: fundos e bordas de cada elemento (e dos ::before/::after
+  // posicionados, que fazem as molduras dos temas), os canvases (tabuleiro, peças) e os textos, palavra
+  // por palavra no lugar em que estão na tela
+  function rasterize(el){
+    const R = el.getBoundingClientRect(), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.ceil(R.width)); c.height = Math.max(1, Math.ceil(R.height));
+    const x = c.getContext("2d");
+    const visibleColor = col => col && col !== "transparent" && !/,\s*0\)$/.test(col);
+    const paintBox = (cs, l, t, w, h) => {
+      if (visibleColor(cs.backgroundColor)) { x.fillStyle = cs.backgroundColor; x.fillRect(l, t, w, h); }
+      const bw = parseFloat(cs.borderTopWidth) || 0;
+      if (bw > 0 && cs.borderTopStyle !== "none" && visibleColor(cs.borderTopColor)) {
+        x.strokeStyle = cs.borderTopColor; x.lineWidth = bw; x.strokeRect(l + bw / 2, t + bw / 2, w - bw, h - bw);
+      }
+    };
+    const pseudo = (node, r, which) => {
+      const cs = getComputedStyle(node, which);
+      if (!cs.content || cs.content === "none" || cs.content === "normal" || cs.position !== "absolute") return;
+      const px = v => v === "auto" ? null : parseFloat(v);
+      const L = px(cs.left), Rt = px(cs.right), T = px(cs.top), Bt = px(cs.bottom);
+      const w = px(cs.width) ?? r.width - (L ?? 0) - (Rt ?? 0), h = px(cs.height) ?? r.height - (T ?? 0) - (Bt ?? 0);
+      const l = L !== null ? L : Rt !== null ? r.width - Rt - w : 0, t = T !== null ? T : Bt !== null ? r.height - Bt - h : 0;
+      paintBox(cs, r.left - R.left + l, r.top - R.top + t, w, h);
+    };
+    for (const e of [el, ...el.querySelectorAll("*")]) {
+      const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+      if (!r.width || cs.visibility === "hidden" || cs.opacity === "0") continue;
+      paintBox(cs, r.left - R.left, r.top - R.top, r.width, r.height);
+      pseudo(e, r, "::before");
+      if (e instanceof HTMLCanvasElement) x.drawImage(e, r.left - R.left, r.top - R.top, r.width, r.height);
+      pseudo(e, r, "::after");
+    }
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), range = document.createRange();
+    x.textBaseline = "middle";
+    for (let n; (n = walker.nextNode());) {
+      const s = n.textContent, cs = getComputedStyle(n.parentElement);
+      if (!s.trim() || cs.visibility === "hidden" || cs.opacity === "0") continue;
+      x.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; x.fillStyle = cs.color;
+      for (const m of s.matchAll(/\S+/g)) {
+        range.setStart(n, m.index); range.setEnd(n, m.index + m[0].length);
+        const rr = range.getBoundingClientRect();
+        if (rr.width) x.fillText(cs.textTransform === "uppercase" ? m[0].toUpperCase() : m[0], rr.left - R.left, rr.top - R.top + rr.height / 2);
+      }
+    }
+    return c;
+  }
+  // menu do fim de jogo animado (Padrão e Hacker): texto, botões e um botão que abre o histórico,
+  // logo antes do último (o "Menu principal" fica sempre por último)
+  function fillGoMenu(text, buttons){
+    $("goText").textContent = text;
+    const wrap = $("goHistWrap"), list = $("goHistory");
+    wrap.hidden = true;
+    const hist = {
+      label: "Últimas partidas", cls: "btn ghost", action: el => {
+        wrap.hidden = !wrap.hidden;
+        if (!wrap.hidden) {
+          list.replaceChildren(...historyItems());
+          // balão saindo do botão para a esquerda do menu; sem espaço ali, embaixo dos botões
+          const below = goMenu.getBoundingClientRect().left < 330;
+          wrap.classList.toggle("below", below);
+          wrap.style.top = below ? "" : el.offsetTop + el.offsetHeight / 2 + "px";
+        }
+        el.textContent = wrap.hidden ? "Últimas partidas" : "Esconder partidas";
+        if (goFx && goFx.onHist) goFx.onHist();
+      }
+    };
+    const els = makeButtons([...buttons.slice(0, -1), hist, buttons[buttons.length - 1]]);
+    $("goActions").replaceChildren(...els);
+    goMenu.hidden = true; goMenu.classList.remove("show");
+    return els;
+  }
+  function closeGoFx(){
+    if (!goFx) return;
+    for (const v of goFx.vanish) v.el.style.clipPath = v.el.style.visibility = "";
+    for (const el of goFx.offEls || []) el.style.animationDelay = "";
+    goFx = null;
+    gameoverEl.hidden = true; goMenu.hidden = true; goMenu.classList.remove("show");
+    gameoverEl.classList.remove("glitch"); $("hkBubble").hidden = true;
+    goMenu.style.left = goMenu.style.width = "";
+    document.body.classList.remove("go-run", "hk-flicker", "hk-off");
+  }
+  function skipGoFx(){ if (goFx) goFx.t = Math.max(goFx.t, goFx.kind === "hacker" ? HKGO.menu : goFx.kind === "noir" ? NGO.menu : GO_MENU_AT); }
+
+  // massinha: as fotos se juntam no centro do tabuleiro (girando e encolhendo) e são sovadas juntas,
+  // como várias massinhas de cores diferentes: a mistura é passada em faixas que ondulam para os lados
+  // (as cores vão marmorizando), gira devagar e fica presa numa bola mole de borda irregular, que pulsa
+  // (achata e estica) e vai diminuindo até CLAY_R. Tudo à direita de cutX já foi comido pelo Pac-Man.
+  const CLAY_GATHER = 700, CLAY_KNEAD = 400, CLAY_KNEAD_MS = 1200;
+  let clayA = null, clayB = null;
+  const clayR = g => Math.min(g.h * .3, 170);
+  function drawClay(g, cutX){
+    const t = g.t, ga = ease(span(t, 0, CLAY_GATHER)), kn = ease(span(t, CLAY_KNEAD, CLAY_KNEAD_MS));
+    const Rf = clayR(g), S = Math.ceil(Rf * 4.2), half = S / 2;
+    if (!clayA || clayA.width !== S) {
+      clayA = document.createElement("canvas"); clayB = document.createElement("canvas");
+      clayA.width = clayA.height = clayB.width = clayB.height = S;
+    }
+    const a = clayA.getContext("2d"), b = clayB.getContext("2d");
+    // 1) as fotos indo para o centro, cada uma com seu giro e encolhendo para caber na bola
+    a.setTransform(1, 0, 0, 1, 0, 0); a.clearRect(0, 0, S, S);
+    // o tabuleiro (as peças coloridas) por último e maior, para as cores aparecerem na mistura
+    for (const p of g.pieces) {
+      const pcx = p.r.left + p.r.width / 2, pcy = p.r.top + p.r.height / 2;
+      const fit = Math.min(1, Rf * (p.board ? 2 : 1.25) / Math.max(p.r.width, p.r.height));
+      const x = lerp(pcx, g.cx + p.off[0] * fit, ga) - g.cx + half, y = lerp(pcy, g.cy + p.off[1] * fit, ga) - g.cy + half;
+      const sc = lerp(1, fit, ga), rot = p.rot * ga + kn * Math.sin(t / 300 + p.i) * .4;
+      a.setTransform(sc * Math.cos(rot), sc * Math.sin(rot), -sc * Math.sin(rot), sc * Math.cos(rot), x, y);
+      a.drawImage(p.img, -p.r.width / 2, -p.r.height / 2);
+    }
+    a.setTransform(1, 0, 0, 1, 0, 0);
+    gctx.save();
+    gctx.beginPath(); gctx.rect(0, 0, cutX, goH); gctx.clip(); // o que o Pac-Man já comeu some
+    if (kn <= 0) {
+      // ainda juntando: as fotos aparecem como estão, onde estiverem
+      gctx.drawImage(clayA, g.cx - half, g.cy - half);
+      gctx.restore();
+      return 0;
+    }
+    // 2) sovando: faixas da mistura deslocadas em ondas, para as cores se misturarem
+    b.clearRect(0, 0, S, S);
+    for (let y = 0; y < S; y += 4) {
+      const dx = (Math.sin(y / 13 + t / 110) * 16 + Math.sin(y / 37 - t / 170) * 11) * kn;
+      b.drawImage(clayA, 0, y, S, 4, dx, y, S, 4);
+    }
+    // 3) a bola mole: borda irregular que ondula, pulsando (achata/estica) e encolhendo até o tamanho final
+    const settle = 1 - span(t, CLAY_KNEAD + CLAY_KNEAD_MS - 300, 500);
+    const R = lerp(Rf * 1.9, Rf, kn), pulse = Math.sin(t / 95) * .16 * kn * settle, sx = 1 + pulse, sy = 1 - pulse;
+    const blob = new Path2D();
+    for (let j = 0; j <= 28; j++) {
+      const ang = j / 28 * Math.PI * 2, rr = R * (1 + (.07 * Math.sin(j * 2.3 + t / 140) + .05 * Math.sin(j * 5.1 - t / 90)) * kn);
+      const px = g.cx + Math.cos(ang) * rr * sx, py = g.cy + Math.sin(ang) * rr * sy;
+      j ? blob.lineTo(px, py) : blob.moveTo(px, py);
+    }
+    blob.closePath();
+    gctx.save();
+    gctx.clip(blob);
+    // massa de base, para a bola ficar cheia mesmo onde as fotos não chegam; a mistura vai crescendo por cima
+    gctx.fillStyle = `rgba(38,48,106,${kn})`; gctx.fill(blob);
+    const grow = lerp(1, Rf / R * 1.7, kn);
+    gctx.translate(g.cx, g.cy); gctx.rotate(kn * t / 900); gctx.scale(sx * grow, sy * grow);
+    gctx.drawImage(clayB, -half, -half);
+    gctx.setTransform(1, 0, 0, 1, 0, 0); gctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    // volume de massinha: brilho em cima à esquerda e sombra na borda
+    const shade = gctx.createRadialGradient(g.cx - R * .35, g.cy - R * .4, R * .1, g.cx, g.cy, R * 1.15);
+    shade.addColorStop(0, `rgba(255,255,255,${.3 * kn})`); shade.addColorStop(.45, "rgba(255,255,255,0)");
+    shade.addColorStop(.8, "rgba(0,0,0,0)"); shade.addColorStop(1, `rgba(0,0,0,${.45 * kn})`);
+    gctx.fillStyle = shade; gctx.fillRect(g.cx - R * 2, g.cy - R * 2, R * 4, R * 4);
+    gctx.restore();
+    gctx.lineWidth = 3; gctx.strokeStyle = `rgba(13,17,36,${kn})`; gctx.stroke(blob);
+    gctx.restore();
+    return R;
+  }
+  // face: 1 olha para a direita, -1 para a esquerda (espelhado, para o olho continuar em cima)
+  function drawGoPac(x, y, r, t, face){
+    const mouth = (.03 + .2 * Math.abs(Math.sin(t / 75))) * Math.PI;
+    gctx.save(); gctx.translate(x, y); gctx.scale(face, 1);
+    gctx.fillStyle = "#ffcc1a";
+    gctx.beginPath(); gctx.moveTo(0, 0); gctx.arc(0, 0, r, mouth, Math.PI * 2 - mouth); gctx.closePath(); gctx.fill();
+    gctx.shadowColor = "transparent";
+    gctx.fillStyle = "#111";
+    gctx.beginPath(); gctx.arc(r * .1, -r * .5, r * .11, 0, Math.PI * 2); gctx.fill();
+    gctx.restore();
+  }
+
+  // cada letra é desenhada uma vez numa imagem própria (cor, volume e enfeites fixos);
+  // olhos dos fantasmas e a boca do Pac-Man são desenhados ao vivo, por cima
+  function letterSprite(L, size){
+    const dpr = window.devicePixelRatio || 1, S = Math.ceil(size * 1.7);
+    const c = document.createElement("canvas"); c.width = c.height = Math.ceil(S * dpr);
+    const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.font = `${size}px ${GO_FONT}`; x.textAlign = "center"; x.textBaseline = "alphabetic";
+    const m = x.measureText(L.ch), cx = S / 2;
+    const asc = m.actualBoundingBoxAscent || size * .875, desc = m.actualBoundingBoxDescent || 0;
+    const base = S / 2 + (asc - desc) / 2, top = base - asc;
+    const left = cx - (m.actualBoundingBoxLeft || size / 2), right = cx + (m.actualBoundingBoxRight || size / 2);
+    const sp = { c, S, top: top - S / 2, base: base - S / 2, left: left - cx, right: right - cx };
+    if (L.kind === "pac") return sp;
+    const lh = base - top, lw = right - left;
+    x.fillStyle = L.color; x.fillText(L.ch, cx, base);
+    // volume: claro em cima, escuro embaixo (só onde já tem letra)
+    x.globalCompositeOperation = "source-atop";
+    x.fillStyle = "rgba(255,255,255,.25)"; x.fillRect(0, top, S, lh * .28);
+    x.fillStyle = "rgba(0,0,0,.2)"; x.fillRect(0, base - lh * .25, S, S);
+    if (L.kind === "fruit") { x.fillStyle = "rgba(255,255,255,.75)"; x.fillRect(left + lw * .12, top + lh * .14, size * .1, size * .1); }
+    if (L.kind === "ghost" || L.kind === "scared") {
+      // saia do fantasma: dentinhos cortados embaixo
+      x.globalCompositeOperation = "destination-out";
+      const n = 6, depth = lh * .14;
+      x.beginPath();
+      for (let i = 1; i < n; i++) {
+        const a = left + lw * i / n, hw = lw / n * .38;
+        x.moveTo(a - hw, base + 1); x.lineTo(a, base - depth); x.lineTo(a + hw, base + 1);
+      }
+      x.fill();
+    }
+    x.globalCompositeOperation = "source-over";
+    if (L.kind === "fruit") {
+      x.strokeStyle = "#8b4a1c"; x.lineWidth = size * .08; x.lineCap = "round";
+      x.beginPath(); x.moveTo(cx, top + size * .04); x.quadraticCurveTo(cx - size * .02, top - size * .14, cx + size * .08, top - size * .24); x.stroke();
+      x.fillStyle = "#3fa34d";
+      x.beginPath(); x.ellipse(cx + size * .2, top - size * .16, size * .15, size * .07, -.45, 0, Math.PI * 2); x.fill();
+    }
+    return sp;
+  }
+  // "GAME OVER" numa linha só, ou em duas ("GAME" / "OVER") em tela estreita;
+  // list e spriteFn trocam as letras e o desenho delas (o noir usa as suas)
+  function goLayout(g, list = GO_LETTERS, spriteFn = letterSprite){
+    const key = goW + "x" + goH;
+    if (g.layoutKey === key) return;
+    g.layoutKey = key;
+    const two = goW < 640, slots = two ? 4 : 9;
+    const size = Math.floor(Math.min(goW * .9 / (slots * 1.08), two ? 110 : 120, goH * (two ? .15 : .2)));
+    const step = size * 1.08, lineH = size * 1.55, top = goH * (two ? .2 : .26);
+    const rows = two ? [[0, 1, 2, 3], [4, 5, 6, 7]] : [[0, 1, 2, 3, null, 4, 5, 6, 7]];
+    g.letters = [];
+    rows.forEach((row, ri) => {
+      const x0 = goW / 2 - (row.length - 1) * step / 2;
+      row.forEach((idx, ci) => {
+        if (idx === null) return;
+        const L = list[idx];
+        g.letters[idx] = { ...L, x: x0 + ci * step, y: top + ri * lineH, size, sp: spriteFn(L, size) };
+      });
+    });
+    goMenu.style.top = Math.round(top + (rows.length - 1) * lineH + size * .9 + 28) + "px";
+  }
+  function drawGoLetters(g, lt){
+    goLayout(g);
+    const time = g.t / 1000;
+    g.letters.forEach((L, i) => {
+      const p = (lt - i * GO_DROP) / GO_FALL;
+      if (p <= 0) return;
+      // cai do alto quicando; depois fica balançando de leve, cada letra no seu tempo
+      const y = L.y - (1 - bounceOut(Math.min(1, p))) * (L.y + L.size * 2)
+        + (p >= 1 ? Math.sin(time * 3 + i * .8) * L.size * .05 : 0);
+      const { sp, size } = L, lw = sp.right - sp.left, lh = sp.base - sp.top;
+      gctx.save();
+      gctx.shadowColor = "rgba(0,0,0,.6)"; gctx.shadowOffsetY = size * .08;
+      if (L.kind === "pac") drawGoPac(L.x, y + sp.top + lh / 2, lh * .53, g.t, 1);
+      else gctx.drawImage(sp.c, L.x - sp.S / 2, y - sp.S / 2, sp.S, sp.S);
+      gctx.restore();
+      const ey = y + sp.top + lh * .24, cx = L.x + (sp.left + sp.right) / 2;
+      if (L.kind === "ghost") {
+        // olhos que ficam olhando em volta
+        const lx = Math.cos(time * 1.3 + i) * size * .03, ly = Math.sin(time * 1.7 + i) * size * .025;
+        for (const side of [-1, 1]) {
+          const ex = cx + side * lw * .22;
+          gctx.fillStyle = "#fff";
+          gctx.beginPath(); gctx.ellipse(ex, ey, size * .08, size * .1, 0, 0, Math.PI * 2); gctx.fill();
+          gctx.fillStyle = "#1b2a8a";
+          gctx.beginPath(); gctx.arc(ex + lx, ey + ly, size * .045, 0, Math.PI * 2); gctx.fill();
+        }
+      } else if (L.kind === "scared") {
+        // assustado: olhinhos quadrados e boca tremida
+        gctx.fillStyle = gctx.strokeStyle = "#ffd9b8";
+        for (const side of [-1, 1]) gctx.fillRect(cx + side * lw * .2 - size * .05, ey - size * .05, size * .1, size * .1);
+        const my = y + sp.top + lh * .62, mw = lw * .5;
+        gctx.lineWidth = size * .045; gctx.lineJoin = "round";
+        gctx.beginPath();
+        for (let s = 0; s <= 6; s++) gctx.lineTo(cx - mw / 2 + mw * s / 6, my + (s % 2 ? -1 : 1) * size * .04);
+        gctx.stroke();
+      }
+    });
+  }
+
+  function drawGoFx(dt){
+    const g = goFx;
+    if (document.documentElement.clientWidth !== goW || window.innerHeight !== goH) sizeGo();
+    g.t += dt;
+    gctx.clearRect(0, 0, goW, goH);
+    if (g.kind === "hacker") { drawHackFx(g); return; }
+    if (g.kind === "noir") { drawNoirFx(g, dt); return; }
+    const lt = g.t - GO_LETTERS_AT;
+    // Pac-Man gigante: maior que a bola de massinha, atravessa a tela da direita para a esquerda
+    const R = Math.max(clayR(g) * 1.35, Math.min(goW, goH) * .2);
+    const pacT = g.t - GO_PAC_AT;
+    const pacX = pacT < 0 ? null : goW + R - (goW + 2 * R + 20) * Math.min(1, pacT / GO_PAC_MS);
+    const cutX = pacX === null ? goW : pacX - R * .2;
+    if (cutX > 0) {
+      const r = drawClay(g, cutX);
+      // farelos de massinha colorida voando da boca enquanto ele come
+      if (pacX !== null && cutX > g.cx - r && cutX < g.cx + r && Math.random() < .8) {
+        g.bits.push({ x: cutX, y: g.cy + (Math.random() - .5) * r * 1.6, vx: .05 + Math.random() * .2, vy: (Math.random() - .5) * .5,
+          s: 4 + Math.random() * 7, c: [...Object.values(COLORS), "#4a3fc4", "#20284d", "#e8ebff"][rand(10)], life: 700, fall: .0012 });
+      }
+    }
+    drawGoBits(g, dt);
+    if (pacX !== null && pacX > -R) drawGoPac(pacX, g.cy, R, g.t, -1);
+    if (lt >= 0) drawGoLetters(g, lt);
+    if (!g.menu && g.t >= GO_MENU_AT) {
+      g.menu = true;
+      goMenu.hidden = false; void goMenu.offsetWidth; goMenu.classList.add("show");
+    }
+  }
+  // painéis da página (g.vanish) somem da direita para a esquerda conforme cutX passa por eles;
+  // particle(x, y) dá a partícula que sai da beirada que está sumindo
+  function vanishPanels(g, cutX, particle){
+    for (const v of g.vanish) {
+      const cut = Math.max(0, Math.min(v.r.width, v.r.right - cutX));
+      v.el.style.clipPath = cut ? `inset(0 ${cut}px 0 0)` : "";
+      v.el.style.visibility = cut >= v.r.width ? "hidden" : "";
+      if (cut > 0 && cut < v.r.width && Math.random() < .8) g.bits.push(particle(cutX, v.r.top + Math.random() * v.r.height));
+    }
+  }
+  // partículas do fim de jogo: as que têm "fall" caem; as estrelinhas (star) sobem girando
+  function drawGoBits(g, dt){
+    g.bits = g.bits.filter(b => (b.life -= dt) > 0);
+    for (const b of g.bits) {
+      b.vy += b.fall * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      gctx.globalAlpha = Math.min(1, b.life / 300);
+      gctx.fillStyle = b.c;
+      if (!b.star) { gctx.fillRect(b.x - b.s / 2, b.y - b.s / 2, b.s, b.s); continue; }
+      const s = b.s * (.6 + .4 * Math.sin(b.life / 60)), q = s * .22;
+      gctx.beginPath();
+      gctx.moveTo(b.x, b.y - s); gctx.lineTo(b.x + q, b.y - q); gctx.lineTo(b.x + s, b.y); gctx.lineTo(b.x + q, b.y + q);
+      gctx.lineTo(b.x, b.y + s); gctx.lineTo(b.x - q, b.y + q); gctx.lineTo(b.x - s, b.y); gctx.lineTo(b.x - q, b.y - q);
+      gctx.closePath(); gctx.fill();
+    }
+    gctx.globalAlpha = 1;
+  }
+
+  // ---------- fundo do tema noir: um detetive atrás de um ladrão, numa rua à noite ----------
+  // O cenário parado (céu, lua, árvores e arbustos do fundo, calçada e postes) é desenhado uma vez numa
+  // camada; a cada quadro entra a luz dos postes (somada, em "lighter"). Por cima vêm o rastro, o
+  // detetive, o ladrão e os esconderijos (arbusto, árvore e banco), na frente de tudo.
+  // A história, em ciclo: o ladrão passa correndo com o saco de dinheiro nas costas, deixando pegadas
+  // e notas caindo do saco → o detetive vem atrás, seguindo o rastro com a lupa → o ladrão se esconde
+  // (mergulha no arbusto, sobe na árvore ou entra embaixo do banco, alternando) e só os olhos brilham,
+  // piscando e olhando para os lados → o detetive passa direto → o ladrão sai e corre para um
+  // esconderijo no sentido contrário → quando o detetive some, o ladrão foge pela outra ponta.
+  // Visual de fliperama antigo: o cenário é desenhado num canvas de baixa resolução (cada pixel vira
   // NOIR_PIX×NOIR_PIX na tela, sem suavizar) e, no fim de cada quadro, reduzido a 8 tons de cinza com
-  // pontilhado ordenado (dithering), como nos jogos antigos. Postes e bancos têm tamanho fixo em px
-  // para ficarem na escala do detetive (desenhado por cima, com pixels de DET_PX px).
-  const NOIR_WALK = 48, SIT_CHANCE = .4, NOIR_PIX = 3; // px por segundo; chance de sentar em cada banco; tamanho do pixel
+  // pontilhado ordenado (dithering), como nos jogos antigos. Postes e esconderijos têm tamanho fixo em
+  // px para ficarem na escala dos personagens (desenhados por cima, com pixels de DET_PX px).
+  const NOIR_WALK = 48, THIEF_RUN = 125, NOIR_PIX = 3; // px por segundo (detetive andando, ladrão correndo); tamanho do pixel
+  const THIEF_CLIMB = 100, LOOK_MS = 1300, BLINK_MS = 160; // subida na árvore (px/s); cada olhada dos olhos escondidos e a piscada antes dela
   const NOIR_LEVELS = [0, 14, 30, 52, 82, 122, 178, 240];
   const NOIR_LUT = Array.from({ length: 256 }, (_, v) => NOIR_LEVELS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a));
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v / 16 - .5) * 22);
-  let noirLayer = null, noirPix = null, nc = null, footY = 0, ns = 1, lamps = [], benches = [], pigeons = [], det = null;
+  let noirLayer = null, noirPix = null, nc = null, footY = 0, ns = 1, lamps = [], det = null;
+  let spots = [], marks = [], notes = [], bits = [], thief = null, story = null, lastSpotType = "";
   const circle = (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); };
+
+  // árvore e arbusto em pixel art, das imagens de referência (78×88 e 47×47), comprimidos como o Dalí:
+  // cada letra é uma faixa de brilho da foto (a = mais escuro … p = mais claro), "." = transparente
+  const TREE_RLE = ".39n.38/.38ol.38/.38nkn3mk.33/.36n2lmn2k2iklp.30/.32o3momnm2ljkh3k2m.28/.32mnmkl3jimlhgkfgej.28/.32lklm2nmljlk2g2efel.28/.28m2n2ljmol2mk2hgfed2ei.3kl.24/.28mnl2mjnokink2hefd3ilgli2d.24/.26n2lk2jknmlihikmkge2fdjmhigf2.24/.24nlkl2knmikm2ijglkiked3i2efdcdeg.22/.20kn.2oh2lolikijmjhifg3ife2de2cedcded.22/.19kl.3ng2ik2iljfjhg2f2he2d2cd2celmfgk2mn.20/.18mkln.mhefi2ghijh2fjkhe4dedgf2em2jm2hio.20/.17lknmkmlkg2jifmhfljei2defdcd2cgijhlolmljkm.20/.16ln3mkm2hef2hfghlg2d2fghidcd2fl2mok3mjkhj.20/.16njlmn2m2kil2f4hfefdfhe2cdfhk4mol2njgl5.17/.14pl2inmn2on2kji2ghifd7ed3inkli2lh2iedkigfj.17/.15mhji2n2mlkjij2ef2e2fc4d2c2dfkhkjehimhfihfeg.18/.14m.ioh2k2jkjhg2fhnfechfd2cdgc2efhfhgekie2fifdfef.17/.14jgikjkgkokhei2dc2dfenoig3nefeg3fhmfefefe3dgkn.16/.13ifj2mj2ioi2g2ijdfedcdhl2ol2nljfe2fede2ded2ec3flmn2mn.12/.11m.2kh2glhfiliefded2ilc2hmlnlklmjdf2cfede2fcdec2eilkmojl.12/.10om2knhkhgfefmidfdcefgldiljol2hiohfdc2fed3e3dcdfh2knlj2kn.10/.11k3nmnh2ifgfecfdcglgihlmkmnljlif3ec3dfefc4d2klj2lhil.fg.8/.9n2m2k2nlhghedcfde2cdfnm2kl2jljfkgejfcdec7dfdcfmh2if2efed.8/.9k2jmn2lnmhed2cededc2fjlnlmokmhfkjfifcdec6d2khgegf2e2fd3e.8/.8nmkjmo2nl2iecdc7dfgkol2mlieghedc2bc4d4cglmkfkjejhd2c2h.7/.7mlk2jklnkhijijed2c5fnlm2jkoji2fglfc2didcb2cd2jkmojei2efeifcf.8/.8onhkijl2mljghdc3dc2dfionjfikighf2gfedh2ecbcdecghjligilce2gecd.8/.8mg2jhfhg2jg3dc2dc2giegokjig3f4jkf2dcfdbdc3fmihijhjed4ck.l.6/.7m.mjgfk2ljf2nid2c4egi2mhihigf2lgeh2ecdgfc3bc2dighkmgd2c2efcfjej.5/.6nghgifg3mklied3c4edhgd2e2ighikfcedc2egfcdce2kgmlki2f3d2c4hklo.4/.7kg2hgighjhkid3ec3d3hgdclie3demdfc2fdcd3cgknhji2nhj2ecfdc2d2gmn.2mk/.7gehke2d3e3dedc4bc2d3ck2egkfcec4gec2b2c2hlimli2gfgcdfdce.jm2nkjgh/.7lijmed4ededed3c2bcefce4cgiecfdcdfd3cbc2himljkilhghd3c2fjmnljgh2m/.6ojlj2hidc7dgdgdcdehd4cd4e2dcd4c3ifhj2ki3lhe3fdc2fhljih2ifg/.3n2lki2jml2hgcdkecfd3hjihd2c3fdfc2efdcd3c3dfjinji2mlf2e2fd2c2dehojng2f2m/.2oijimijn2klihfegdcd2cdgjlhfe3c5dc2ec2dfdc2fkfghiljhided5cd2gh3khiefm/.3lfjmi2lolmijligf2dc3dhonhfcdc10d3c2deljnjfh3ged3c3dc2ijehfe3g./.2kgefkl3klomi2hgedc4gjkmifcdbc8d2c2def2kek2f3kjeded5cfihefe2dfj./.2kgjgin2ok3lihe2fec4k2ilgjkec2bd2bc4dc2dfh2lgf2ed2f2d3cfd2c2de2de5k./.3jgfglmh2jh2i2f2ed2cbegfgfdloifdh2keb2cdfecfef2d2fedfdcd4c4bcdefe3dfk.2/.2de4hgjngkghged4cbfhe2dhknohkhkifc4dc2fedhed4fdce2cd2c5defed2c2k.2/.2md2e4gkfjgkid2c2dcbcdf3jinljomimjeb2c4d3fed2cd4e2cd2c3d2c2dcdigfm.2/.3gde4f2gfehge2c4bd3f2linlklkfg2iec6ede2decede2c6de2dcdec2fk.4/.2hcd6e2d5fdc4df3e2li2ngifjhjhc6dcd2c3d4c3dfefedc5d2g.4/.2mgd2fd2e3feid2c4bcdg2digjmjhgmf2e2dc9dfc6edef3ed2fc2dfdjd.4/.4lcedcdededfcdc2b3defefifgj2hfh2egidc2b2c6dc4efh2jhd3e2defed2ek.4/nk.idc3f4c10de2fiefifgfd2e2gjf2b4cbc6defg3fdcd2e3gfd2i.6/likfhc2ded3cdec5bc2efegihd2kid3hfe2dc5b3c5fehed2fgcd3ed3fe.6/leighefd2c9b3c3defgehegfjmfd2fe2dc3b3cb3fed2gefde2d4ged2il.6/.kg2h3ec5bc2b2c2b2c2degiefdeheheg2cdedb6cbcdedefd5cd2c7g.6/.kiejkhgdc5b2c4bcdfdc2ed2gh2dc2f2dc3b7cefefd3e2cdefce2c5f.6/.2mf2eljedc9b2c2ec2dgece4cedcfdcb2c2b3dfecdecdfed2cdecd2c2d2ci.6/.jgfgeh2fedc2b2c2bcb2c4edec7e2c5b4c2d2e2gd3fefec9d2m.6/.ig2fe2fe2gefdc8bc2fedcdcfgdc9bcbc2de2ded3ed2c4ec2d2c2i.7/.2jfe3fhefj2fdfed2ecb2cbc6dec9b2c8efc2edbc4dc2df3.8/.jef2de2fef2d2e4dgdbcdc6bc4edc4b4cdc2dc2d2cdc7dcdedfm.8/.2jchfd8e2f2d2c5b4c2bc3d2cb3cb2c3bced2c2d2c2decbcedcd2ef.8/.2ldcdedgf2cded4cd2cbc2b5c6d2cb4ced3c2dec2ec2dcdefdejilhfl.8/.2mgedcdied3e2fdced2cbc3bc3bc6edcb2ce2d2c7d2cdef2gfh.14/.2idlk2de2dfdce2c2d2cb2c2dcdcb8cd2c2e2dc3bc4bcd2cdf2gj.15/.6gd2ed5c3dc2b4c6b7cd2e2d3c2b3cbc6d2fgi.14/.7kc2ec2efc2d2c5bcdc4b7cd2ecb7c2bcd2c2dc2d2m.14/.7ilglgd3c7dc6bcdb2cb3cd2cb3c2b3cdc2d3jgjegfh.14/.11idjhdcdc8b2cb2cdc2dcbcd2cbcb4c6hidh.20/.13hd2efdce2c2b2c8d2c2d3c5bc4d3ek.22/.13hd4c9bc2b2ce2cbcd4c7dcdcefi.22/.13fhihfdkdc4dc3b3cfdc3d2e2c2ecfhejemeleh.22/.20fe3cd2c2bc3fdcbcd2e2gh.2j.31/.20id4c7dfehjd4eh.35/.20d2ce5fe4gejmd3e2h.35/.20fdcedc2elglhfgedfd2fe2h.35/.19jhjfkeidi.4mge2d2efdeh.35/.34gd3fedeh.35/.34hd2egedel.35/.27i.6if2ged2e.36/.27i2.3fjighed3f.36/.26ng2m.2ikihed4e.36/.25m2ghimkjfheded4ief.33/.25igfhfe2decd2fgcdc4f.32/.22kjkf2h2igededec2ecdc2de.33/.20nghghe2f2ljihigdcdc2edcdfjlgjk.28/.15j.4ifgef2d2ehgfefdc2dc2dc2e2dgfeh2m.lho.22/.13lihj2khfegf2gf3g3f2e4g4hge4ge2gfhfgj.21/.13jh3kl4.2m9l5m6l4ml3m3lm13n.8/.38m2.38";
+  const BUSH_RLE = ".30m.16/.25n2.3n4.13/.22m2hmloljnmko.13/.22ihgjl2jil2il.13/.18jinmi2kifikhfigil.12/.16olg2hnlfmlhfjkmfh2n2mo.9/.14nk3hmj2ijhjf2j3hehjl2mno.7/.14mih2fmkh2lhgefg2ijfh4kl.8/.14lkhjehifi2ejing2fhjilhfim.8/.12jilk2ohifim2fgknkhgjhegfefl.8/.10mnjge2fg2mkjnkh3lhgeghlid2inlno.5/.9mikigmig2eg2e2dgkf2i2ehilhdfj2il2.5/.10ig2eki2himjfemkginhdeh2djege2gjk.5/.10ji2f3g2hg2jhmkgjkefecdenjehgegi.5/.6moighgfig2ijegjihgheg2fe2d2fmihihfghk.4/.5mljkihlgeig2fhklgjfdim2ghdchf4he2f2l.4/.5jki2jlmgfelmiejhk2igikfgoflof2mkecdgk.5/.4ljgeh2klefiejih2ehfgede2lmikjc2kmfcdefi.4/.2l3ihfgfg3jnd2emle2fcefgcigfgcde2hgf2e2lk.n2/.2ki2g2mkhegh2jde2fdehlgejgcd2cdc3e3hgeg2iknm/.2i3gfhkhfife2dc2efeglh2liflif2cd2egcdf2gdhjn./.kijh2g2higlhefhebcdjkgd2gh2nlfhdecdc2bfifgmj2./.mlgfg2hnmhg2f2gfbd2jmkf2e2d2edfcdgfc3def2khfk/.2kfed2gj2gdj2gc3d2hf2jhfcfjgcbeknlecdefhefnji/.2hged2efefcimfdc2d3cdfhfeikhdecikf2ec2egdjim./.2hgd2cf2hfc2gcd2e3cedceljdcd3ecfhkdcdcdei.3/.3ded2c3dedc2e4jcjkdhkhd3g2d3hkfcgjd2el.2/.2ied2ed2befd2efedikej2gdefhgdhjfg2d2ech2e2hkj./.2ig2d3c3b2cgihdghdghgfiehgdedfkj2cdce2cfhdh./.igfgc4fecdcdh2dc2fge3d2ece2bceikdfcgicd2cdf/.kf3egfedefc2ecdi2dfgdbdcijedhb3cfeieh2fd2ef./.mgd4ghe3c4eijecdecdcikgc3ecbcdf2j2cdecf./.f2jhdcgfdc3hedbdcefecdfecdedecdc2ecbdghcdml.2/mgfkefcdcegfdfgdc3egedfkicbcd3cbgigd3b2dh.3/.m.2fhdc3hjiefecg2ceigdfhd3bcgedeihghcdc2flj2/.4l2ebc3df2de2g2cgif2g2be4gfd2ceikdcd2cdem/.4fedc2befef2jhdehcdcdjibdbc2bc2ecbdecdec2dm./.2lihiefdcfd2e2d3gifc2bdhdc2dc4dcdcd4cegj./.2lgedjec3gfc2f2ed2ce2dbc2bghebcdcbd3c4kli./.4e2kcd4cdfefce2cfed3c2dec2dcd2c3de3h.3/.4fjlhfedc2bcdc2dcdbc2f2bc4e2dc2dcbed2g2m.2/.8medc3f2ecdbcdc3fb2d2c2fd2cd2c2dg.5/.9l.ked2f2c8bcecd2c3dc2fdegi.5/.8nmjgf6ed3ced3ecdcd2c3f.fj.7/.7nkhi2h4ghg2hghg2f10e2fehj.6/.6k4l4j2ijij4ih3g4h5ih2gfhil.3/.6n2ln5mlk2lk2lmn.n.3ljklkjl2kj3ijm.3";
+  const decodeRows = rle => rle.split("/").map(r => r.replace(/([.a-p])(\d*)/g, (_, ch, n) => ch.repeat(n ? +n : 1)));
+  // k escurece o verde da foto para a noite; dither já reduz aos 8 tons pontilhados do tema
+  // (para os que ficam na frente; os do fundo passam pelo pontilhado junto com o cenário)
+  function graySprite(rows, k, dither){
+    const w = rows[0].length, h = rows.length, c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const x2 = c.getContext("2d"), im = x2.createImageData(w, h), a = im.data;
+    rows.forEach((r, y) => [...r].forEach((ch, x) => {
+      if (ch === ".") return;
+      const i = (y * w + x) * 4;
+      let l = ((ch.charCodeAt(0) - 97) * 16 + 8) * k;
+      if (dither) { l += BAYER[(y & 3) * 4 + (x & 3)]; l = NOIR_LUT[l < 0 ? 0 : l > 255 ? 255 : l | 0]; }
+      a[i] = a[i + 1] = a[i + 2] = l; a[i + 3] = 255;
+    }));
+    x2.putImageData(im, 0, 0);
+    return c;
+  }
+  const TREE_ROWS = decodeRows(TREE_RLE), BUSH_ROWS = decodeRows(BUSH_RLE);
+  const TREE_IMG = graySprite(TREE_ROWS, .62, true), BUSH_IMG = graySprite(BUSH_ROWS, .6, true);
+  const TREE_BG = graySprite(TREE_ROWS, .3, false), BUSH_BG = graySprite(BUSH_ROWS, .36, false);
+  // banco em pixel: pés, assento e encosto de ripas; o assento fica na altura do quadril de um adulto
+  const BENCH_IMG = (() => {
+    const W = 30, H = 18, sy = H - 9, c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const x2 = c.getContext("2d");
+    x2.fillStyle = "#262626";
+    for (const lx of [2, W - 4]) { x2.fillRect(lx, sy, 2, H - sy); x2.fillRect(lx, sy - 9, 2, 9); }
+    x2.fillStyle = "#4a4a4a"; x2.fillRect(0, sy - 1, W, 2); x2.fillRect(1, sy - 5, W - 2, 1); x2.fillRect(1, sy - 8, W - 2, 2);
+    x2.fillStyle = "#5e5e5e"; x2.fillRect(0, sy - 1, W, 1);
+    return c;
+  })();
+  const SPOT_IMG = { tree: TREE_IMG, bush: BUSH_IMG, bench: BENCH_IMG };
+  // quanto da imagem fica abaixo do pé (a grama embaixo da árvore e do arbusto)
+  const SPOT_SINK = { tree: 3, bush: 2, bench: 0 };
 
   function buildNoir(){
     ns = Math.max(.7, Math.min(1.2, fxH / 900));
@@ -1122,14 +2166,13 @@ h1 span { color: var(--accent); }
     c.fillStyle = "rgba(0,0,0,.09)";
     for (const [dx, dy, r] of [[-.3, -.2, .22], [.25, .15, .16], [-.05, .4, .12], [.35, -.35, .1], [-.4, .3, .09]]) circle(c, mx + dx * mr, my + dy * mr, r * mr);
 
-    // árvores bem ao fundo, só silhuetas
-    for (let x = -20; x < fxW + 40; x += (40 + Math.random() * 70) * ns) {
-      const h = (90 + Math.random() * 90) * ns, w = (24 + Math.random() * 22) * ns, g = 13 + rand(9);
-      c.fillStyle = `rgb(${g},${g},${g})`;
-      c.fillRect(x - 3 * ns, groundY - h * .45, 6 * ns, h * .45);
-      circle(c, x, groundY - h * .55, w); circle(c, x - w * .6, groundY - h * .4, w * .75);
-      circle(c, x + w * .6, groundY - h * .42, w * .7); circle(c, x, groundY - h * .8, w * .7);
-    }
+    // árvores e arbustos ao fundo, encostados na calçada: as mesmas pixel arts, menores e bem escuras
+    const bg = (img, x, k) => {
+      const w = img.width * NOIR_PIX * k, h = img.height * NOIR_PIX * k;
+      c.drawImage(img, x - w / 2, groundY + 3 * k - h, w, h);
+    };
+    for (let x = -30; x < fxW + 60; x += (80 + Math.random() * 120) * ns) bg(TREE_BG, x, (.4 + Math.random() * .25) * ns);
+    for (let x = -10; x < fxW + 30; x += (40 + Math.random() * 70) * ns) bg(BUSH_BG, x, (.3 + Math.random() * .2) * ns);
 
     // calçada, meio-fio e asfalto com faixa tracejada
     const curb = groundY + 14 * ns;
@@ -1142,7 +2185,6 @@ h1 span { color: var(--accent); }
     const laneY = (curb + fxH) / 2;
     for (let x = 10; x < fxW; x += 70) c.fillRect(x, laneY, 36, 3);
 
-    // postes: braço para um lado ou para o outro, alternando
     // postes: braço para um lado ou para o outro, alternando (tamanho fixo, na escala do detetive)
     lamps = [];
     const gap = 380, P = NOIR_PIX;
@@ -1161,67 +2203,132 @@ h1 span { color: var(--accent); }
       c.fillStyle = "#f2f2f2"; c.fillRect(l.hx - 4 * P, l.hy - P, 8 * P, 2 * P);      // lâmpada
     }
 
-    // bancos entre os postes, só onde dá para ver (fora do tabuleiro e dos painéis);
-    // o assento fica na altura do quadril do detetive sentado (13 pixels da arte × DET_PX)
+    // esconderijos (até dois de cada tipo), só onde dá para ver inteiro (fora do tabuleiro e dos
+    // painéis) e sem encostar um no outro; se a tela for apertada demais, ficam dois perto das pontas
     const covered = [...document.querySelectorAll("#board, .box, .pad, .scorecard")].map(el => el.getBoundingClientRect()).filter(r => r.width);
-    const visible = x => !covered.some(r => x + 60 > r.left && x - 60 < r.right && footY - 20 > r.top && footY - 70 < r.bottom);
-    benches = [];
-    for (let i = 0; i < lamps.length - 1; i++) {
-      const x = (lamps[i].x + lamps[i + 1].x) / 2;
-      if (x < 60 || x > fxW - 60 || !visible(x) || Math.random() < .3) continue;
-      benches.push({ x });
-      const w = 30 * P, sy = footY - 13 * DET_PX;
-      c.fillStyle = "#262626";
-      for (const lx of [x - w / 2 + 2 * P, x + w / 2 - 4 * P]) { c.fillRect(lx, sy, 2 * P, footY - sy); c.fillRect(lx, sy - 9 * P, 2 * P, 9 * P); }
-      c.fillStyle = "#4a4a4a";
-      c.fillRect(x - w / 2, sy - P, w, 2 * P);
-      c.fillRect(x - w / 2 + P, sy - 5 * P, w - 2 * P, P);
-      c.fillRect(x - w / 2 + P, sy - 8 * P, w - 2 * P, 2 * P);
-      c.fillStyle = "#5e5e5e"; c.fillRect(x - w / 2, sy - P, w, P);
+    const size = type => [SPOT_IMG[type].width * NOIR_PIX, SPOT_IMG[type].height * NOIR_PIX];
+    const free = (x, w, h) => x - w / 2 > 4 && x + w / 2 < fxW - 4
+      && !covered.some(r => x + w / 2 > r.left && x - w / 2 < r.right && footY > r.top && footY - h < r.bottom)
+      && spots.every(s => Math.abs(s.x - x) > (s.w + w) / 2 + 24);
+    spots = [];
+    for (const type of [...shuffle(["tree", "bush", "bench"]), ...shuffle(["tree", "bush", "bench"])]) {
+      const [w, h] = size(type);
+      const x = shuffle(Array.from({ length: Math.floor(fxW / 20) }, (_, i) => i * 20 + 10)).find(x => free(x, w, h));
+      if (x !== undefined) spots.push({ type, x, w, h, shakeT: 0 });
     }
+    if (spots.length < 2) spots = [["bush", .15], ["bench", .85]].map(([type, f]) => { const [w, h] = size(type); return { type, x: fxW * f, w, h, shakeT: 0 }; });
+    marks = []; notes = []; bits = [];
+    det = { x: -60, dir: 1, phase: 0, active: false };
+    thief = { x: -60, dir: 1, phase: 0, state: "off", spot: null, lift: 0, vy: 0, hideT: 0, stepAcc: 0, noteT: 0, foot: 0 };
+    newChase();
+    if (reduceMotion) {
+      // sem animação: o ladrão já escondido e o detetive parado longe dele
+      const s = story.T;
+      thief.state = "hidden"; thief.spot = s; story.phase = "hide1";
+      det.active = true; det.dir = story.dir; det.x = s.x - story.dir * Math.min(220, fxW * .3);
+    }
+  }
 
-    pigeons = Array.from({ length: 5 }, () => ({ x: 40 + Math.random() * (fxW - 80), y: footY, face: Math.random() < .5 ? -1 : 1, state: "ground", t: rand(2000), next: 600 + rand(2000) }));
-    det = { x: reduceMotion ? fxW * .2 : -60, dir: 1, state: "walk", phase: 0, sitT: 0 };
+  // começa uma perseguição: o ladrão entra por uma ponta e vai até o esconderijo T (na metade de lá
+  // da tela, de um tipo diferente do último usado); depois volta para B, antes de T no caminho dele,
+  // de preferência de outro tipo
+  function newChase(){
+    const dir = Math.random() < .5 ? 1 : -1, pick = a => a[rand(a.length)];
+    const ahead = spots.filter(s => (s.x - fxW / 2) * dir > 0);
+    const pool = ahead.length ? ahead : spots, fresh = pool.filter(s => s.type !== lastSpotType);
+    const T = pick(fresh.length ? fresh : pool);
+    const back = spots.filter(s => (T.x - s.x) * dir > 150), other = back.filter(s => s.type !== T.type);
+    const B = back.length ? pick(other.length ? other : back) : null;
+    lastSpotType = (B || T).type;
+    story = { phase: "enter", t: 0, dir, T, B };
+    thief.x = dir > 0 ? -60 : fxW + 60; thief.spot = null; thief.lift = 0;
+    runTo(T, dir);
+    det.x = dir > 0 ? -60 : fxW + 60; det.dir = dir; det.active = false;
+    for (const m of marks) m.fadeAt ??= fxClock; // o rastro da perseguição anterior vai sumindo
+  }
+  // s = esconderijo de destino; sem esconderijo, corre até sair da tela
+  function runTo(s, d){ thief.state = "run"; thief.dir = d; thief.target = s; thief.tx = s ? s.x : d > 0 ? fxW + 60 : -60; thief.noteT = 300; }
+  // chegou: no arbusto e no banco ele mergulha direto; na árvore, sobe até sumir na copa
+  function arrive(s){ if (s.type === "tree") { thief.state = "climb"; thief.spot = s; } else hide(s); }
+  function hide(s){ thief.state = "hidden"; thief.spot = s; thief.hideT = 0; s.shakeT = 500; burst(s); }
+  const climbTop = s => s.h * .5; // altura dos pés quando ele termina de subir (escondido atrás da copa)
+  function emerge(d, s){
+    const from = thief.spot;
+    from.shakeT = 500; burst(from);
+    thief.spot = null; thief.from = from; thief.x = from.x;
+    if (from.type === "tree") { thief.state = "drop"; thief.vy = 0; thief.next = [s, d]; thief.dir = d; }
+    else { thief.lift = 0; runTo(s, d); }
+  }
+  // folhas voando do arbusto e da copa da árvore; poeira saindo de baixo do banco
+  function burst(s){
+    const bench = s.type === "bench", [y0, y1] = bench ? [.05, .25] : s.type === "tree" ? [.35, .9] : [.35, .85];
+    for (let i = 0; i < 14; i++) bits.push({
+      x: s.x + (Math.random() - .5) * s.w * .7, y: footY - s.h * (y0 + Math.random() * (y1 - y0)),
+      vx: (Math.random() - .5) * (bench ? 220 : 140), vy: bench ? -20 - rand(50) : -60 - rand(130), life: 900,
+      color: bench ? "#5a5a5a" : "#3a3a3a"
+    });
   }
 
   function updateNoir(dt){
     if (reduceMotion || !det) return;
     fxClock += dt;
-    if (det.state === "walk") {
-      const prev = det.x;
+    const s = story, dir = s.dir, edge = d => d > 0 ? fxW + 60 : -60;
+    s.t += dt;
+
+    // detetive: entra 2,5 s depois do ladrão, pela mesma ponta, e anda seguindo o rastro até sair do outro lado
+    if (!s.detIn && s.t > 2500) { s.detIn = true; det.active = true; }
+    if (det.active) {
       det.x += det.dir * NOIR_WALK * dt / 1000;
       det.phase += dt * .0075;
-      for (const b of benches) {
-        const crossed = det.dir > 0 ? prev < b.x && det.x >= b.x : prev > b.x && det.x <= b.x;
-        if (crossed && Math.random() < SIT_CHANCE) { det.state = "sit"; det.x = b.x; det.sitT = 4000 + rand(6000); break; }
-      }
-      if (det.x > fxW + 60) det.dir = -1;
-      if (det.x < -60) det.dir = 1;
-    } else if ((det.sitT -= dt) <= 0) det.state = "walk";
-
-    for (const p of pigeons) {
-      p.t += dt;
-      if (p.state === "ground") {
-        // o detetive chegou perto: os pombos voam para longe dele
-        if (Math.abs(p.x - det.x) < 90) {
-          p.state = "fly"; p.face = p.x < det.x ? -1 : 1;
-          p.vx = p.face * (90 + rand(60)); p.vy = -(110 + rand(60));
-        } else if (p.t > p.next) {
-          p.x += p.face * 6 * ns; p.t = 0; p.next = 600 + rand(2000);
-          if (Math.random() < .3) p.face *= -1;
-        }
-      } else if (p.state === "fly") {
-        p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000;
-        if (p.y < -30 || p.x < -30 || p.x > fxW + 30) { p.state = "away"; p.t = 0; p.next = 3000 + rand(6000); }
-      } else if (p.state === "away" && p.t > p.next) {
-        // volta pousando em outro ponto da calçada, longe do detetive
-        do p.x = 40 + Math.random() * (fxW - 80); while (Math.abs(p.x - det.x) < 150 * ns && fxW > 400 * ns);
-        p.y = footY - 220 * ns; p.vx = 0; p.vy = 110; p.state = "land";
-      } else if (p.state === "land") {
-        p.y += p.vy * dt / 1000;
-        if (p.y >= footY) { p.y = footY; p.state = "ground"; p.t = 0; }
-      }
+      if ((det.x - edge(det.dir)) * det.dir > 0) { det.active = false; s.detGone = true; }
     }
+
+    // ladrão correndo: pegadas no chão (um pé de cada vez) e, de vez em quando, uma nota cai do saco
+    if (thief.state === "run") {
+      const step = thief.dir * THIEF_RUN * dt / 1000;
+      thief.x += step; thief.phase += dt * .009;
+      if ((thief.stepAcc += Math.abs(step)) >= 22) {
+        thief.stepAcc = 0; thief.foot ^= 1;
+        marks.push({ kind: "step", x: thief.x + (thief.foot ? 5 : -5), y: footY + (thief.foot ? 1 : 4), dir: thief.dir });
+      }
+      if ((thief.noteT -= dt) <= 0) {
+        thief.noteT = 450 + rand(800);
+        notes.push({ x: thief.x - thief.dir * 15 * DET_PX, y: footY - 54 * DET_PX, vx: -thief.dir * (8 + rand(30)), vy: -25, t: rand(500), land: footY - 3 + rand(7) });
+      }
+      if ((thief.x - thief.tx) * thief.dir >= 0) {
+        thief.x = thief.tx;
+        if (thief.target) arrive(thief.target); else thief.state = "off";
+      }
+    } else if (thief.state === "climb") {
+      thief.lift += THIEF_CLIMB * dt / 1000; thief.phase += dt * .006;
+      if (thief.lift >= climbTop(thief.spot)) { thief.lift = climbTop(thief.spot); hide(thief.spot); }
+    } else if (thief.state === "drop") {
+      // pula da copa e cai; no chão já sai correndo
+      thief.vy += 900 * dt / 1000; thief.lift -= thief.vy * dt / 1000;
+      if (thief.lift <= 0) { thief.lift = 0; runTo(...thief.next); }
+    } else if (thief.state === "hidden") thief.hideT += dt;
+
+    // a história: esconde em T → o detetive passa → corre para B → o detetive some → foge
+    if (s.phase === "enter" && thief.state === "hidden") s.phase = "hide1";
+    else if (s.phase === "hide1" && det.active && (det.x - s.T.x) * dir > 140) {
+      if (s.B) { emerge(-dir, s.B); s.phase = "flee"; } else { emerge(-dir, null); s.phase = "escape"; }
+    } else if (s.phase === "flee" && thief.state === "hidden") { s.phase = "hide2"; s.wait = 0; }
+    // espera umas olhadas para os lados (conferindo se dá para sair) antes de fugir
+    else if (s.phase === "hide2" && s.detGone && (s.wait += dt) > LOOK_MS * 4) { emerge(-dir, null); s.phase = "escape"; }
+    else if (s.phase === "escape" && thief.state === "off" && !det.active) { s.phase = "rest"; s.wait = 0; }
+    else if (s.phase === "rest" && (s.wait += dt) > 2500) newChase();
+
+    // notas caindo balançando, até pousar na calçada (aí viram parte do rastro)
+    for (const n of notes) {
+      n.t += dt; n.vy = Math.min(45, n.vy + 70 * dt / 1000);
+      n.x += (n.vx + Math.sin(n.t / 140) * 25) * dt / 1000; n.y += n.vy * dt / 1000;
+      if (n.y >= n.land) { n.y = n.land; n.done = true; marks.push({ kind: "note", x: n.x, y: n.y }); }
+    }
+    notes = notes.filter(n => !n.done);
+    marks = marks.filter(m => m.fadeAt === undefined || fxClock - m.fadeAt < 2500).slice(-400);
+    for (const b of bits) { b.life -= dt; b.vy += 300 * dt / 1000; b.x += b.vx * dt / 1000; b.y += b.vy * dt / 1000; }
+    bits = bits.filter(b => b.life > 0 && b.y < footY + 4);
+    for (const sp of spots) sp.shakeT = Math.max(0, sp.shakeT - dt);
 
     // de vez em quando um poste falha por um instante
     for (const l of lamps) {
@@ -1235,7 +2342,6 @@ h1 span { color: var(--accent); }
     nc.setTransform(1, 0, 0, 1, 0, 0);
     nc.drawImage(noirLayer, 0, 0);
     nc.setTransform(1 / NOIR_PIX, 0, 0, 1 / NOIR_PIX, 0, 0);
-    for (const p of pigeons) if (p.state !== "away") drawPigeon(p);
     // luz dos postes: funil fino na lâmpada que vai abrindo até o chão, em duas faixas chapadas,
     // mais a poça de luz embaixo e o brilho da lâmpada
     nc.globalCompositeOperation = "lighter";
@@ -1264,29 +2370,75 @@ h1 span { color: var(--accent); }
     fctx.imageSmoothingEnabled = false;
     fctx.drawImage(noirPix, 0, 0, noirPix.width * NOIR_PIX, noirPix.height * NOIR_PIX);
     fctx.imageSmoothingEnabled = true;
-    drawDetective();
+    drawChase();
   }
 
-  function drawPigeon(p){
-    const c = nc;
-    c.save(); c.translate(p.x, p.y); c.scale(p.face * 1.4, 1.4);
-    const flying = p.state === "fly" || p.state === "land";
-    const peck = !flying && p.t % 1400 < 250 ? 4 : 0;
-    c.fillStyle = "#5c5c5c";
-    c.beginPath(); c.moveTo(-6, -6); c.lineTo(-13, -4); c.lineTo(-6, -3); c.fill();
-    c.fillStyle = "#7a7a7a";
-    c.beginPath(); c.ellipse(0, -5, 7, 4.5, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = "#8c8c8c"; circle(c, 6, -10 + peck, 3);
-    c.fillStyle = "#c4c4c4"; c.fillRect(8.5, -10 + peck, 2.5, 1.2);
-    if (flying) {
-      const f = Math.sin(fxClock / 55) * 9;
-      c.fillStyle = "#6a6a6a";
-      c.beginPath(); c.moveTo(-3, -7); c.lineTo(3, -7); c.lineTo(-2, -7 - f); c.fill();
-    } else {
-      c.strokeStyle = "#4a4a4a"; c.lineWidth = 1;
-      c.beginPath(); c.moveTo(-1, -1); c.lineTo(-1, 0); c.moveTo(2, -1); c.lineTo(2, 0); c.stroke();
+  // rastro → detetive → ladrão → esconderijos (na frente) → olhos brilhando → folhas e poeira
+  function drawChase(){
+    const P = DET_PX, c = fctx;
+    for (const m of marks) {
+      c.globalAlpha = m.fadeAt === undefined ? 1 : Math.max(0, 1 - (fxClock - m.fadeAt) / 2500);
+      const x = Math.round(m.x / P) * P, y = Math.round(m.y / P) * P;
+      if (m.kind === "step") {
+        // pegada: sola e ponta do pé para onde ele corria; clara com sombra escura embaixo,
+        // para aparecer tanto na luz do poste quanto no escuro
+        const tx = x + (m.dir > 0 ? 3 : -4) * P;
+        c.fillStyle = "#050505"; c.fillRect(x - 2 * P, y + P, 4 * P, 2 * P); c.fillRect(tx, y + P, 2 * P, 2 * P);
+        c.fillStyle = "#a8a8a8"; c.fillRect(x - 2 * P, y, 4 * P, 2 * P); c.fillRect(tx, y, 2 * P, 2 * P);
+      } else drawNote(x, y, false);
     }
-    c.restore();
+    c.globalAlpha = 1;
+    // no fim de jogo os personagens somem do fundo (o ladrão gigante entra por cima)
+    const cast = !(goFx && goFx.kind === "noir");
+    if (cast) for (const n of notes) drawNote(Math.round(n.x / P) * P, Math.round(n.y / P) * P, Math.sin(n.t / 110) < 0);
+    if (cast && det.active) drawDetective();
+    // correndo, ou subindo e descendo da árvore por trás dela (a árvore vem depois, na frente)
+    if (cast && (thief.state === "run" || thief.state === "climb" || thief.state === "drop")) drawThief();
+    c.imageSmoothingEnabled = false;
+    for (const s of spots) {
+      // o banco tem uma sombra embaixo do assento, onde os olhos aparecem quando ele está lá
+      if (s.type === "bench") { c.fillStyle = "rgba(0,0,0,.6)"; c.fillRect(Math.round(s.x - s.w / 2 + 2 * NOIR_PIX), footY - 9 * NOIR_PIX, s.w - 4 * NOIR_PIX, 9 * NOIR_PIX); }
+      const shake = s.shakeT > 0 ? Math.round(Math.sin(fxClock / 28) * 1.5) * NOIR_PIX : 0;
+      c.drawImage(SPOT_IMG[s.type], Math.round(s.x - s.w / 2) + shake, footY - s.h + SPOT_SINK[s.type] * NOIR_PIX, s.w, s.h);
+    }
+    c.imageSmoothingEnabled = true;
+    if (cast && thief.state === "hidden" && thief.spot && thief.spot.shakeT <= 0) drawEyes(thief.spot);
+    for (const b of bits) { c.fillStyle = b.color; c.fillRect(Math.round(b.x / P) * P, Math.round(b.y / P) * P, P * 2, P); }
+  }
+  // nota de dinheiro em pixel: retângulo claro com o miolo escuro; caindo, "vira" e fica fininha
+  function drawNote(x, y, flip){
+    const P = DET_PX, c = fctx;
+    c.fillStyle = "#d4d4d4";
+    if (flip) { c.fillRect(x - 3 * P, y, 7 * P, P); return; }
+    c.fillRect(x - 3 * P, y - P, 7 * P, 3 * P);
+    c.fillStyle = "#8a8a8a"; c.fillRect(x - P, y - P, 3 * P, 3 * P);
+    c.fillStyle = "#f2f2f2"; c.fillRect(x, y, P, P);
+  }
+  // olhos brilhando no esconderijo, conferindo se dá para sair: aparecem olhando para a frente,
+  // piscam e reaparecem olhando para um lado, piscam e olham para o outro, e assim por diante
+  // como nos desenhos animados quando alguém está no escuro: um buraco preto no esconderijo e,
+  // dentro dele, dois olhos grandes e brancos com pupila. Ao piscar, a pálpebra fecha numa linha.
+  const LOOKS = [0, -1, 1, 0, 1, -1];
+  const EYE_ROWS = [3, 5, 5, 5, 5, 5, 5, 3]; // largura de cada linha do olho, em pixels: um oval de 5×8
+  function drawEyes(s){
+    const P = DET_PX, c = fctx, k = Math.floor(thief.hideT / LOOK_MS);
+    const blinking = k > 0 && thief.hideT % LOOK_MS < BLINK_MS, look = LOOKS[k % LOOKS.length];
+    const ey = s.type === "bench" ? footY - 6 * NOIR_PIX : s.type === "tree" ? footY - s.h * .62 : footY - s.h * .5;
+    const y = Math.round(ey / P) * P - 4 * P, x = Math.round(s.x / P) * P + look * 2 * P;
+    // escuridão em volta, com os cantos arredondados em degrau
+    c.fillStyle = "rgba(0,0,0,.88)";
+    c.fillRect(x - 12 * P, y - P, 24 * P, 10 * P); c.fillRect(x - 10 * P, y - 3 * P, 20 * P, 14 * P);
+    // um brilho fraco em volta de cada olho, pulsando
+    c.fillStyle = `rgba(255,255,255,${.08 + .05 * Math.sin(fxClock / 260)})`;
+    for (const ex of [x - 8 * P, x + 3 * P]) c.fillRect(ex - 2 * P, y - 2 * P, 9 * P, 12 * P);
+    for (const ex of [x - 8 * P, x + 3 * P]) {
+      c.fillStyle = "#ffffff";
+      if (blinking) { c.fillRect(ex, y + 4 * P, 5 * P, P); continue; }
+      EYE_ROWS.forEach((w, r) => c.fillRect(ex + (5 - w) / 2 * P, y + r * P, w * P, P));
+      // pupila na metade de baixo, indo para o lado em que ele está olhando
+      c.fillStyle = "#111111";
+      c.fillRect(ex + (look + 1) * P, y + 3 * P, 3 * P, 4 * P);
+    }
   }
 
   // detetive em pixel art, copiado da imagem de referência (31×70 pixels): chapéu, sobretudo com
@@ -1379,7 +2531,7 @@ h1 span { color: var(--accent); }
   const DET_LEG_Y = 55;
   const liftLeg = (x0, x1) => DET_ROWS.map((r, y) => y < DET_LEG_Y ? r
     : [...r].map((ch, x) => x < x0 || x > x1 ? ch : (DET_ROWS[y + 2] ? DET_ROWS[y + 2][x] : ".")).join(""));
-  function detSprite(rows){
+  function detSprite(rows, pal = DET_PAL){
     const w = rows[0].length, h = rows.length, c = document.createElement("canvas");
     c.width = w + 2; c.height = h + 2;
     const x2 = c.getContext("2d"), on = (x, y) => y >= 0 && y < h && x >= 0 && x < w && rows[y][x] !== ".";
@@ -1388,38 +2540,421 @@ h1 span { color: var(--accent); }
       if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) x2.fillRect(x + 1, y + 1, 1, 1);
     }
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      if (on(x, y)) { x2.fillStyle = DET_PAL[rows[y][x]]; x2.fillRect(x + 1, y + 1, 1, 1); }
+      if (on(x, y)) { x2.fillStyle = pal[rows[y][x]]; x2.fillRect(x + 1, y + 1, 1, 1); }
     }
     return c;
   }
-  const DET_WALK = [DET_ROWS, liftLeg(0, 14), DET_ROWS, liftLeg(15, 30)].map(detSprite);
-  // sentado: some um pedaço das coxas (linhas 50–57), então o quadril desce até a altura do banco
-  const DET_SITTING = detSprite(DET_ROWS.slice(0, 50).concat(DET_ROWS.slice(58)));
+  const DET_WALK = [DET_ROWS, liftLeg(0, 14), DET_ROWS, liftLeg(15, 30)].map(rows => detSprite(rows));
 
-  // desenhado por cima do cenário já pixelado, com pixels de DET_PX px (um pouco menores que os do
-  // cenário, para ele ter altura de gente perto do poste); espelhado para a lupa ir na frente
+  // ladrão em pixel art, copiado da imagem de referência (50×63 pixels, virado para a esquerda):
+  // máscara com os olhos de fora, roupa escura e o saco de dinheiro nas costas. Cada letra é uma
+  // faixa de brilho da referência (a = mais escuro … h = mais claro), clareada como a do detetive;
+  // "E" são os olhos, sempre brancos.
+  const THIEF_ROWS = [
+    ".....................aaa..aaaa....................",
+    "...................aadccaadeeebaad................",
+    "..................adddccdbadeeeeecac..............",
+    ".................adccccccbacddddeeecc.............",
+    ".................adcccccccbacdddddeedc............",
+    "................aadcccccccbacddddddcaaaaaaaa......",
+    "...............aeadcccccccbacdddbaabcccccccca.....",
+    "..............aeeadcccdacbbacaaabcccddddddddca....",
+    ".............aeecadadcaEabbaacccccccdcbbbbbccda...",
+    ".............aeedaaEadcabbbabcdcccccbbbbbbbbccda..",
+    "..........aaaeecdadadbbbbbabbbcddcbbbbbbaaabbcda..",
+    ".......aaadcaeecdaabbaaaaaabbbbbbbbbbbaada.abbdda.",
+    "......accccbaecdacaaaffcffabbbbbbbbbaadeda..abdda.",
+    "......adccbaeecabbbafcchfabbbbbbbaabdddeda...abdba",
+    "......adcbbaecdabbbbahgfabccccbbabddddddda...abbba",
+    "......accbbaecabbbbddaaabcdccccbabddddddda....abba",
+    "......adcbbaddaacbddddddccccccdcabddddddda....aaaa",
+    ".......acbaaaa..aadcdcccccccccccbabdddddca..aafffa",
+    ".......abahhfa....adccccccccccccbabdddddca.ahhhffa",
+    "........aahffa....addddbbbcccccbbabdddddca.agghffa",
+    "........aahhfa.....abbbbbbbbbbbbbabdddddca.aghfffa",
+    ".........afefa.....abbbbbbbbbbbbbabddddca...afffa.",
+    "..........aaa.......abbbbbbbbbbbbabddddca....aaa..",
+    ".........adda.......abbbbbbbbbbbbabdddcb..........",
+    "........aeeca........abbbbbbbbbbabdddcb...........",
+    "........aaaaa........abbbbbbbbbbabdbac............",
+    ".....................abbbbbbbbbbaaad..............",
+    ".............aaaaaaaaabbbbbbbbbbae................",
+    ".......aaaaaaddddddddbbbbbbbbbbbad................",
+    ".....aaddddddddcccccbbbbbbbbbbbbad................",
+    "....accdccccccdccbbbbbbbbbbbbbbbbbd...............",
+    "....accccbbbbbbbbbbbbbbbbbbbbbbbbad...............",
+    "....acccbbbbbbbbbbbbbbbbbbbbbbcccbbd..............",
+    "....accbbbbabbbbbbbbbbbbbbbbbbcccccbd.............",
+    "....accbbbbaaaaaaaaaaaaabbbbbbccccdcbc............",
+    "....accbbbba............abbbbbbcdddccbc...........",
+    ".....acbbbba.............aabbbbbcddcccbc..........",
+    ".....acbbbba...............bbbbbbccdccbbd.........",
+    ".....acbbbbbd...............babbbccddccba.........",
+    "......bbbbbba.................bbbbcccdcbbd........",
+    "......abbbbba..................cbbbbbccbba........",
+    "......abbbbba...................dcbbbbbbba........",
+    "......cbbbbba....................dbbbbbbbd........",
+    ".......abbbba...................cccbbbbba.........",
+    ".......abbbba..................ccccbbbbbc.........",
+    ".aa....bbbbba.................cbcccbbbbb..........",
+    "acca....abbba.................cbccbbbbbc..........",
+    "accca...abbba................cccdcbbbbc...........",
+    "abbccaa.abbba................ccccbbbbc............",
+    "abbbbdcaabbba................ccccbbbbc............",
+    ".abbbbbbbbbbba...............cbcbbbbc.............",
+    ".abbbbbbbbbbba..............bccbbbbc..............",
+    "..abbbbbbbbbba..............bccbbad...............",
+    "...abbbbbbbbba..............bccbbad...............",
+    "....abbbbbbbba.............bcdcbad................",
+    ".....aabbbbbba.............bccba..................",
+    ".......aabbba.............acdcba..................",
+    ".........aaa.............abbbbba..................",
+    ".........................abbbbbbad................",
+    "..........................abbbbcbe................",
+    "...........................bbbbbcbd...............",
+    "............................bbbbbcbaaab...........",
+    ".............................cbbbbbbbbb..........."
+  ];
+  const THIEF_PAL = { E: "#ffffff" };
+  [..."abcdefgh"].forEach((k, i) => {
+    const g = Math.min(255, Math.round(255 * Math.pow((i * 32 + 16) / 255, .7) * 1.08));
+    THIEF_PAL[k] = `rgb(${g},${g},${g})`;
+  });
+  // correndo: dois quadros; no segundo as pernas (abaixo do quadril, linha 36) são espelhadas em
+  // torno do meio do quadril, e a perna da frente vira a de trás
+  const THIEF_HIP_Y = 36, THIEF_HIP_X = 20.5;
+  const THIEF_RUN_FRAMES = [THIEF_ROWS, THIEF_ROWS.map((r, y) => y < THIEF_HIP_Y ? r
+    : [...r].map((_, x) => r[Math.round(2 * THIEF_HIP_X - x)] || ".").join(""))].map(rows => detSprite(rows, THIEF_PAL));
+
+  // desenhados por cima do cenário já pixelado, com pixels de DET_PX px (um pouco menores que os do
+  // cenário, para terem altura de gente perto do poste); espelhados para olhar para onde andam
   const DET_PX = 2;
   function drawDetective(){
-    const c = fctx, d = det, sitting = d.state !== "walk", P = DET_PX;
-    const img = sitting ? DET_SITTING : DET_WALK[Math.floor(d.phase / 1.1) % 4];
-    c.save(); c.translate(Math.round(d.x / P) * P, footY); c.scale(-d.dir, 1);
+    drawSprite(DET_WALK[Math.floor(det.phase / 1.1) % 4], det.x, det.dir, 0);
+  }
+  function drawThief(){
+    const f = Math.floor(thief.phase) % 2;
+    // quica um pixel a cada passada; subindo ou caindo da árvore, vai junto com a altura (lift)
+    drawSprite(THIEF_RUN_FRAMES[f], thief.x, thief.dir, Math.round(thief.lift / DET_PX) * DET_PX + (f && thief.state === "run" ? DET_PX : 0));
+  }
+  function drawSprite(img, x, dir, lift){
+    const c = fctx, P = DET_PX;
+    c.save(); c.translate(Math.round(x / P) * P, footY - lift); c.scale(-dir, 1);
     c.imageSmoothingEnabled = false;
-    const left = -Math.round(img.width / 2) * P, top = -(img.height - 1) * P;
-    c.drawImage(img, left, top, img.width * P, img.height * P);
+    c.drawImage(img, -Math.round(img.width / 2) * P, -(img.height - 1) * P, img.width * P, img.height * P);
     c.imageSmoothingEnabled = true;
-    if (sitting) {
-      // cigarro aceso no canto da boca, com um fiozinho de fumaça subindo
-      const ex = left + 19 * P, ey = top + 14 * P;
-      c.fillStyle = `rgba(255,255,255,${.6 + .4 * Math.sin(fxClock / 300)})`; c.fillRect(ex, ey, P, P);
-      for (let i = 0; i < 3; i++) {
-        const rise = (fxClock / 40 + i * 20) % 60;
-        c.fillStyle = `rgba(220,220,220,${(1 - rise / 60) * .3})`;
-        c.fillRect(ex + Math.round(Math.sin(fxClock / 400 + i) * 2) * P, ey - rise, P * 2, P * 2);
-      }
-    }
     c.restore();
   }
   buildNoir();
+
+  // ---------- fim de jogo do tema noir ----------
+  // Os personagens somem do fundo. Alguém levanta o saco de dinheiro (o placar embaixo do tabuleiro)
+  // pela boca: o tabuleiro escorrega e cai para dentro dele, a boca se fecha num nó e o saco volta ao
+  // chão com o peso. O saco não estica: é sempre do mesmo tamanho, com o "$" na frente. Aí o ladrão
+  // gigante entra correndo pela direita com um pé de cabra erguido, que vai raspando os painéis da tela
+  // (como se arrancasse o cenário antigo), pega o saco pelo nó e some pela esquerda. "GAME OVER" cai
+  // letra por letra enquanto ele sai, cada letra com um objeto do detetive ou do ladrão, e o menu aparece.
+  const NGO = { lift: 150, liftMs: 750, fall: 300, close: 1150, closeMs: 500, drop: 1650, dropMs: 400, run: 2150, runMs: 2600 };
+  NGO.letters = NGO.run + NGO.runMs * .45;
+  NGO.menu = NGO.letters + 7 * GO_DROP + GO_FALL + 300;
+  // objetos alternando: detetive (chapéu, distintivo, lupa, algemas) e ladrão (máscara, nota, saco, pé de cabra)
+  const NOIR_LETTERS = [
+    { ch: "G", item: "hat" }, { ch: "A", item: "mask" }, { ch: "M", item: "badge" }, { ch: "E", item: "note" },
+    { ch: "O", item: "lupa" }, { ch: "V", item: "bag" }, { ch: "E", item: "cuffs" }, { ch: "R", item: "crowbar" }
+  ];
+  let nlo = null, nloCtx = null; // camada de baixa resolução onde o saco é desenhado (fica pixelado ao ampliar)
+
+  function startNoirFx(text, buttons){
+    drawBoard();
+    const snap = document.createElement("canvas");
+    snap.width = board.width; snap.height = board.height;
+    snap.getContext("2d").drawImage(board, 0, 0);
+    goFx = {
+      kind: "noir", t: 0, snap, br: pageRect(board), sr: pageRect(document.querySelector(".scorecard")),
+      bits: [], menu: false, letters: null, layoutKey: "", carried: false,
+      vanish: [...document.querySelectorAll("header, .box, .pad")].map(el => ({ el, r: pageRect(el) })).filter(v => v.r.width)
+    };
+    fillGoMenu(text, buttons);
+    gameoverEl.hidden = false;
+    document.body.classList.add("go-run");
+    sizeGo();
+  }
+
+  const ease = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const span = (t, at, ms) => Math.max(0, Math.min(1, (t - at) / ms));
+  // linha de "pixels" quadrados de lado size, de (x0, y0) a (x1, y1): desenho de pixel art em tela cheia
+  function pixelLine(c, x0, y0, x1, y1, size, color){
+    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (size * .5)));
+    c.fillStyle = color;
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+      c.fillRect(Math.round((x - size / 2) / size) * size, Math.round((y - size / 2) / size) * size, size, size);
+    }
+  }
+
+  function drawNoirFx(g, dt){
+    const t = g.t, B = g.br, SC = g.sr, Q = NOIR_PIX;
+    if (!nlo || nlo.width !== Math.ceil(goW / Q) || nlo.height !== Math.ceil(goH / Q)) {
+      nlo = document.createElement("canvas"); nlo.width = Math.ceil(goW / Q); nlo.height = Math.ceil(goH / Q);
+      nloCtx = nlo.getContext("2d");
+    }
+    // camada de baixa resolução: limpa, desenha e amplia sem suavizar (fica com os pixels do tema)
+    const lowres = draw => {
+      nloCtx.setTransform(1, 0, 0, 1, 0, 0); nloCtx.clearRect(0, 0, nlo.width, nlo.height);
+      nloCtx.setTransform(1 / Q, 0, 0, 1 / Q, 0, 0);
+      draw(nloCtx);
+      gctx.imageSmoothingEnabled = false;
+      gctx.drawImage(nlo, 0, 0, nlo.width * Q, nlo.height * Q);
+      gctx.imageSmoothingEnabled = true;
+    };
+
+    // ladrão gigante: ~60% da altura da tela, pisando na altura do pé do saco
+    const frame = THIEF_RUN_FRAMES[Math.floor(t / 85) % 2];
+    const TS = Math.max(2, Math.floor(Math.min(goH * .6, goW * .9) / frame.height));
+    const thW = frame.width * TS, ground = Math.min(goH * .98, SC.bottom);
+    const p = (t - NGO.run) / NGO.runMs;
+    const tx = goW + thW / 2 - (goW + thW * 1.5 + SC.width) * Math.max(0, Math.min(1, p));
+    const tTop = ground - frame.height * TS - (Math.floor(t / 85) % 2 ? TS : 0), tLeft = tx - thW / 2;
+    // punho da frente (pixel 10, 20 do quadro) segura o saco; o de trás (48, 15) ergue o pé de cabra
+    const handX = tLeft + 10 * TS, handY = tTop + 20 * TS, barX = tLeft + 48 * TS, barY = tTop + 15 * TS;
+
+    // o saco: sobe pela boca, fecha e volta para o chão quicando com o peso
+    const up = 70 * (t < NGO.drop ? ease(span(t, NGO.lift, NGO.liftMs)) : 1 - bounceOut(span(t, NGO.drop, NGO.dropMs)));
+    const close = ease(span(t, NGO.close, NGO.closeMs));
+    if (p > 0 && !g.carried && handX <= SC.left + SC.width / 2) g.carried = true;
+    const sx = g.carried ? handX - SC.width / 2 + Math.sin(t / 90) * TS : SC.left;
+    const sy = g.carried ? handY - SACK_RIM * .55 : SC.top - up;
+    const sack = sackGeom(sx, sy, SC.width, SC.height, close);
+
+    const drawSack = () => {
+      lowres(c => drawSackBack(c, sack));
+      // o tabuleiro escorrega para dentro: cai com aceleração e some atrás da borda da frente
+      const fy = t > NGO.fall ? .0018 * (t - NGO.fall) ** 2 / 2 : 0;
+      if (!g.carried && fy < B.height + SACK_RIM * 2) {
+        gctx.save(); gctx.beginPath(); gctx.rect(0, 0, goW, sack.rimCY + sack.ry * .6); gctx.clip();
+        gctx.fillStyle = "#3d3d3d"; gctx.fillRect(B.left - 4, B.top + fy - 4, B.width + 8, B.height + 8); // moldura do tabuleiro
+        gctx.imageSmoothingEnabled = false;
+        gctx.drawImage(g.snap, B.left, B.top + fy, B.width, B.height);
+        gctx.imageSmoothingEnabled = true;
+        gctx.restore();
+      }
+      lowres(c => drawSackFront(c, sack));
+    };
+    if (!g.carried) drawSack();
+    if (p > 0 && tx > -thW) {
+      // pé de cabra erguido no punho de trás, inclinado para a frente, com o gancho no alto
+      const tipX = barX - 6 * TS, tipY = Math.max(TS * 3, 24);
+      pixelLine(gctx, barX, barY, tipX, tipY, TS * 2 + 4, "#000");
+      pixelLine(gctx, barX, barY, tipX, tipY, TS * 2, "#8a8a8a");
+      pixelLine(gctx, tipX, tipY, tipX - 3 * TS, tipY - TS * 1.2, TS * 2 + 4, "#000");
+      pixelLine(gctx, tipX, tipY, tipX - 3 * TS, tipY - TS * 1.2, TS * 2, "#8a8a8a");
+      pixelLine(gctx, tipX - 3 * TS, tipY - TS * 1.2, tipX - 4.5 * TS, tipY + TS, TS * 2 + 4, "#000");
+      pixelLine(gctx, tipX - 3 * TS, tipY - TS * 1.2, tipX - 4.5 * TS, tipY + TS, TS * 2, "#8a8a8a");
+      pixelLine(gctx, barX + TS * .4, barY, tipX + TS * .4, tipY + TS, Math.max(2, TS * .6), "#c8c8c8"); // brilho do metal
+      gctx.imageSmoothingEnabled = false;
+      gctx.drawImage(frame, Math.round(tLeft), Math.round(tTop), thW, frame.height * TS);
+      gctx.imageSmoothingEnabled = true;
+    }
+    // o pé de cabra arranca os painéis da tela conforme passa, soltando lascas (depois que ele saiu, ou
+    // se a animação foi pulada com Enter, a ponta já está fora da tela e eles somem de vez)
+    if (p > 0) vanishPanels(g, barX - 6 * TS, (x, y) => ({ x, y, vx: .05 + Math.random() * .15, vy: -.05 - Math.random() * .08,
+      s: 4 + Math.random() * 6, c: ["#8a8a8a", "#5a5a5a", "#e6e6e6"][rand(3)], life: 900, fall: .0009 }));
+    if (g.carried) drawSack();
+
+    drawGoBits(g, dt);
+    if (t >= NGO.letters) drawNoirLetters(g, t - NGO.letters);
+    if (!g.menu && t >= NGO.menu) {
+      g.menu = true;
+      goMenu.hidden = false; void goMenu.offsetWidth; goMenu.classList.add("show");
+    }
+  }
+
+  // saco de pano aberto, como o da referência: borda grossa enrolada para fora, boca escura, corpo
+  // largo que se acomoda no chão com as pontas de baixo saindo, dobras do pano e o "$" na frente.
+  // Medidas da caixa (x, y, w, h); close (0–1) junta a boca até virar um pescoço amarrado, sem mudar
+  // o tamanho do corpo. Em duas partes, para o tabuleiro poder cair entre elas: o fundo (borda de trás
+  // e a boca) e a frente (corpo e borda da frente). Usado no placar (paintSack) e no fim de jogo.
+  const SACK_RIM = 34; // altura da faixa da boca, em px
+  function sackGeom(x, y, w, h, close){
+    return {
+      x, y, w, h, close, cx: x + w / 2, rimCY: y + SACK_RIM * .55,
+      rx: lerp(w * .42, w * .08, close), ry: lerp(SACK_RIM * .42, SACK_RIM * .2, close), band: SACK_RIM * lerp(.5, .3, close)
+    };
+  }
+  const ellipseFill = (c, x, y, rx, ry) => { c.beginPath(); c.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), 0, 0, Math.PI * 2); c.fill(); };
+  function drawSackBack(c, s){
+    if (s.close >= 1) return;
+    c.fillStyle = "#0a0a0a"; ellipseFill(c, s.cx, s.rimCY, s.rx + 4, s.ry + 4);
+    c.fillStyle = "#8e8e8e"; ellipseFill(c, s.cx, s.rimCY, s.rx, s.ry);
+    c.fillStyle = "#141414"; ellipseFill(c, s.cx, s.rimCY + s.ry * .15, s.rx * .86, s.ry * .62);
+  }
+  function drawSackFront(c, s){
+    const { x, y, w, h, cx, rimCY, rx, ry, band, close } = s, bot = y + h, neckY = rimCY + ry * .4;
+    // corpo: desce da boca abrindo para os lados, com as duas pontas de baixo saindo no chão
+    const body = new Path2D();
+    body.moveTo(cx - rx, neckY);
+    body.bezierCurveTo(cx - rx - w * .1, neckY + h * .1, x + w * .03, y + h * .42, x + w * .04, y + h * .7);
+    body.quadraticCurveTo(x + w * .04, bot - 12, x + w * .01, bot - 3);
+    body.quadraticCurveTo(cx, bot + 4, x + w * .99, bot - 3);
+    body.quadraticCurveTo(x + w * .96, bot - 12, x + w * .96, y + h * .7);
+    body.bezierCurveTo(x + w * .97, y + h * .42, cx + rx + w * .1, neckY + h * .1, cx + rx, neckY);
+    body.closePath();
+    c.lineJoin = "round"; c.lineWidth = 7; c.strokeStyle = "#0a0a0a"; c.stroke(body);
+    c.fillStyle = "#5e5e5e"; c.fill(body);
+    c.save(); c.clip(body);
+    c.fillStyle = "rgba(0,0,0,.26)"; c.fillRect(cx + w * .16, y, w, h);              // sombra do lado direito
+    c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(x + w * .1, y, w * .12, h);     // luz do lado esquerdo
+    // dobras do pano
+    c.strokeStyle = "rgba(0,0,0,.42)"; c.lineWidth = 5; c.lineCap = "round";
+    for (const [x0, y0, x1, y1, x2, y2] of [[.2, .5, .32, .56, .45, .5], [.56, .8, .7, .86, .84, .77], [.14, .8, .24, .86, .34, .82], [.62, .45, .72, .5, .8, .44]]) {
+      c.beginPath(); c.moveTo(x + w * x0, y + h * y0); c.quadraticCurveTo(x + w * x1, y + h * y1, x + w * x2, y + h * y2); c.stroke();
+    }
+    c.beginPath(); c.moveTo(cx - rx * .8, neckY + 14); c.quadraticCurveTo(cx, neckY + 26, cx + rx * .8, neckY + 14); c.stroke();
+    // "$" estampado na frente
+    c.font = `${Math.round(Math.min(w * .26, (bot - neckY) * .5))}px "Press Start 2P", monospace`;
+    c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "rgba(0,0,0,.34)";
+    c.fillText("$", cx, neckY + (bot - neckY) * .56);
+    c.restore();
+    // borda da frente: o pano enrolado para fora, uma faixa grossa que acompanha a curva da boca
+    const lip = new Path2D();
+    lip.ellipse(cx, rimCY, rx, ry, 0, Math.PI, 0, true);
+    lip.lineTo(cx + rx * 1.03, rimCY + band);
+    lip.ellipse(cx, rimCY + band, rx * 1.03, ry * 1.15, 0, 0, Math.PI, false);
+    lip.closePath();
+    c.lineWidth = 5; c.strokeStyle = "#0a0a0a"; c.stroke(lip);
+    c.fillStyle = "#9a9a9a"; c.fill(lip);
+    c.save(); c.clip(lip);
+    c.fillStyle = "rgba(255,255,255,.18)"; c.fillRect(cx - rx * 1.1, rimCY, rx * 2.2, band * .35);
+    c.fillStyle = "rgba(0,0,0,.25)";
+    for (let i = -3; i <= 3; i++) c.fillRect(cx + i * rx * .27, rimCY + band * .3, 4, band);  // vincos do pano enrolado
+    c.restore();
+    if (close > .5) {
+      // nó: as pontas do pano abertas para cima e uma volta de corda em volta do pescoço
+      const a = (close - .5) * 2, ear = Math.max(rx * 2.6, w * .16) * a, rise = h * .18 * a, top = rimCY - ry;
+      const ears = new Path2D();
+      ears.moveTo(cx - rx, top + 6); ears.lineTo(cx - ear, top - rise); ears.lineTo(cx - ear * .35, top - rise * .6);
+      ears.lineTo(cx, top - rise * 1.1); ears.lineTo(cx + ear * .35, top - rise * .6); ears.lineTo(cx + ear, top - rise);
+      ears.lineTo(cx + rx, top + 6); ears.closePath();
+      c.lineWidth = 5; c.strokeStyle = "#0a0a0a"; c.stroke(ears); c.fillStyle = "#8e8e8e"; c.fill(ears);
+      c.fillStyle = "#0a0a0a"; c.fillRect(cx - rx * 1.5 - 3, rimCY - 7, rx * 3 + 6, 14);
+      c.fillStyle = "#c8c8c8"; c.fillRect(cx - rx * 1.5, rimCY - 4, rx * 3, 8);
+    }
+  }
+  // o placar do noir usa a mesma pintura do saco como fundo (refeita quando ele muda de tamanho)
+  const sackEl = document.querySelector(".scorecard");
+  function paintSack(){
+    if (theme !== "noir") { sackEl.style.backgroundImage = ""; return; }
+    const w = sackEl.offsetWidth, h = sackEl.offsetHeight;
+    if (!w || !h) return;
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(w / NOIR_PIX); c.height = Math.ceil(h / NOIR_PIX);
+    const x = c.getContext("2d");
+    x.setTransform(1 / NOIR_PIX, 0, 0, 1 / NOIR_PIX, 0, 0);
+    const s = sackGeom(0, 0, w, h, 0);
+    drawSackBack(x, s); drawSackFront(x, s);
+    sackEl.style.backgroundImage = `url(${c.toDataURL()})`;
+  }
+  if (window.ResizeObserver) new ResizeObserver(paintSack).observe(sackEl);
+  document.fonts?.ready.then(paintSack); // o "$" usa a fonte de fliperama
+
+  // letra do GAME OVER do noir: desenhada pequena (a fonte de fliperama fica nítida em múltiplos de 8)
+  // e ampliada 4× sem suavizar, para o objeto e a letra ficarem com os mesmos pixels grandes
+  function noirLetterSprite(L, size){
+    const Z = 4, s = Math.max(8, Math.round(size / Z / 8) * 8), W = Math.ceil(s * 2.2);
+    const c = document.createElement("canvas"); c.width = c.height = W;
+    const x = c.getContext("2d");
+    x.font = `${s}px "Press Start 2P", monospace`; x.textAlign = "center"; x.textBaseline = "alphabetic";
+    const m = x.measureText(L.ch), asc = m.actualBoundingBoxAscent || s * .875, u = Math.max(1, s / 8);
+    const cx = W / 2, base = Math.round(W / 2 + asc / 2), top = base - asc, lw = m.width * .875, left = cx - lw / 2, right = cx + lw / 2;
+    // retângulo com contorno preto de 1 pixel
+    const box = (bx, by, bw, bh, col) => { x.fillStyle = "#000"; x.fillRect(bx - 1, by - 1, bw + 2, bh + 2); x.fillStyle = col; x.fillRect(bx, by, bw, bh); };
+    if (L.item === "note") {
+      // nota de dinheiro atrás da letra, meio torta
+      x.save(); x.translate(cx, top + asc * .55); x.rotate(-.22);
+      box(-lw * .7, -asc * .38, lw * 1.4, asc * .76, "#8a8a8a");
+      x.fillStyle = "#5a5a5a"; x.fillRect(-lw * .6, -asc * .3, lw * 1.2, 1); x.fillRect(-lw * .6, asc * .3 - 1, lw * 1.2, 1);
+      x.fillStyle = "#3a3a3a"; x.font = `${Math.round(s / 2 / 8) * 8 || 8}px "Press Start 2P", monospace`; x.textBaseline = "middle";
+      x.fillText("$", lw * .45, 0); x.fillText("$", -lw * .45, 0);
+      x.restore();
+      x.font = `${s}px "Press Start 2P", monospace`; x.textBaseline = "alphabetic";
+    }
+    if (L.item === "lupa") {
+      // o "O" é a lente de uma lupa, com o cabo saindo para baixo à direita
+      const r = asc * .44, ly = top + asc * .48;
+      x.lineCap = "butt";
+      x.strokeStyle = "#000"; x.lineWidth = u * 2.6;
+      x.beginPath(); x.moveTo(cx + r * .7, ly + r * .7); x.lineTo(cx + r * 1.55, ly + r * 1.55); x.stroke();
+      x.strokeStyle = "#6a6a6a"; x.lineWidth = u * 1.6; x.stroke();
+      x.fillStyle = "rgba(255,255,255,.18)"; x.beginPath(); x.arc(cx, ly, r, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = "#000"; x.lineWidth = u * 2.4; x.stroke();
+      x.strokeStyle = "#e6e6e6"; x.lineWidth = u * 1.3; x.stroke();
+      x.fillStyle = "#ffffff"; x.fillRect(cx - r * .45, ly - r * .45, u, u * 2);
+    } else {
+      // letra clara com contorno preto e sombra dura, como nos painéis do tema
+      x.fillStyle = "#000";
+      for (const [dx, dy] of [[u, u], [u * 2, u * 2]]) x.fillText(L.ch, cx + dx, base + dy);
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) x.fillText(L.ch, cx + dx, base + dy);
+      x.fillStyle = "#e6e6e6"; x.fillText(L.ch, cx, base);
+    }
+    if (L.item === "hat") {
+      // chapéu do detetive em cima do G: aba larga, copa com fita escura
+      box(cx - lw * .4, top - u * 5.5, lw * .8, u * 4, "#5e5e5e");
+      x.fillStyle = "#1a1a1a"; x.fillRect(cx - lw * .4, top - u * 2.6, lw * .8, u);
+      x.fillStyle = "#7a7a7a"; x.fillRect(cx - lw * .3, top - u * 5.5, lw * .6, u * .6);
+      box(cx - lw * .7, top - u * 1.6, lw * 1.4, u * 1.2, "#7a7a7a");
+    } else if (L.item === "mask") {
+      // máscara de ladrão: faixa escura com dois furos para os olhos e as pontas do nó soltas
+      box(cx - lw * .62, top + asc * .28, lw * 1.24, u * 2.4, "#151515");
+      x.fillStyle = "#ffffff"; x.fillRect(cx - lw * .32, top + asc * .28 + u * .7, u * 1.6, u); x.fillRect(cx + lw * .32 - u * 1.6, top + asc * .28 + u * .7, u * 1.6, u);
+      x.fillStyle = "#151515"; x.fillRect(cx + lw * .62, top + asc * .28 + u * .4, u * 1.8, u * .8); x.fillRect(cx + lw * .62 + u, top + asc * .28 + u * 1.4, u * 1.6, u * .8);
+    } else if (L.item === "badge") {
+      // distintivo de estrela no canto do M
+      const bx = right - u * .5, by = top + u * .5, R = u * 2.8;
+      const star = new Path2D();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * .45 : R; star.lineTo(bx + Math.cos(a) * rr, by + Math.sin(a) * rr); }
+      star.closePath();
+      x.strokeStyle = "#000"; x.lineWidth = 2; x.stroke(star); x.fillStyle = "#c8c8c8"; x.fill(star);
+      x.fillStyle = "#6a6a6a"; x.fillRect(bx - u * .5, by - u * .5, u, u);
+    } else if (L.item === "bag") {
+      // saquinho de dinheiro apoiado entre os dois braços do V
+      const bx = cx, by = top - u * .2, r = u * 1.9;
+      x.fillStyle = "#000"; x.beginPath(); x.arc(bx, by, r + 1, 0, Math.PI * 2); x.fill();
+      x.fillStyle = "#8a8a8a"; x.beginPath(); x.arc(bx, by, r, 0, Math.PI * 2); x.fill();
+      box(bx - u, by - r - u * 1.4, u * 2, u * 1.2, "#5a5a5a");
+      x.fillStyle = "#3a3a3a"; x.fillRect(bx - u * .4, by - u * 1.2, u * .8, u * 2.4); x.fillRect(bx - u, by - u * .6, u * 2, u * .5); x.fillRect(bx - u, by + u * .2, u * 2, u * .5);
+    } else if (L.item === "cuffs") {
+      // algemas penduradas no pé do E
+      x.lineWidth = 2;
+      for (const [rx, ry] of [[right - u * .8, base + u * 1.6], [right + u * 1.8, base + u * 2.4]]) {
+        x.strokeStyle = "#000"; x.lineWidth = u * 1.1; x.beginPath(); x.arc(rx, ry, u * 1.05, 0, Math.PI * 2); x.stroke();
+        x.strokeStyle = "#c8c8c8"; x.lineWidth = u * .55; x.stroke();
+      }
+      x.fillStyle = "#8a8a8a"; x.fillRect(right + u * .2, base + u * 1.8, u * .7, u * .5);
+    } else if (L.item === "crowbar") {
+      // pé de cabra atravessado no R, com o gancho em cima
+      x.lineCap = "butt";
+      const seg = (w, col) => {
+        x.strokeStyle = col; x.lineWidth = w;
+        x.beginPath(); x.moveTo(left + u * .5, base - u * .5); x.lineTo(right - u * .2, top + u * 1.6);
+        x.arc(right - u * 1.1, top + u * 1.4, u * .9, 0, -Math.PI * .9, true); x.stroke();
+      };
+      seg(u * 1.7, "#000"); seg(u * .8, "#8a8a8a");
+    }
+    return { c, S: W * Z };
+  }
+  function drawNoirLetters(g, lt){
+    goLayout(g, NOIR_LETTERS, noirLetterSprite);
+    g.letters.forEach((L, i) => {
+      const p = (lt - i * GO_DROP) / GO_FALL;
+      if (p <= 0) return;
+      // cai do alto quicando e depois balança de leve
+      const y = L.y - (1 - bounceOut(Math.min(1, p))) * (L.y + L.size * 2) + (p >= 1 ? Math.sin(g.t / 330 + i * .8) * L.size * .04 : 0);
+      gctx.imageSmoothingEnabled = false;
+      gctx.drawImage(L.sp.c, Math.round(L.x - L.sp.S / 2), Math.round(y - L.sp.S / 2), L.sp.S, L.sp.S);
+      gctx.imageSmoothingEnabled = true;
+    });
+  }
 
   // ---------- fundo do tema hacker: chuva de binário e dois Dalís que saem de trás do jogo ----------
   // Roteiro em ciclo de 22 s: binário caindo → a tela "buga" → dois Dalís saem de trás do tabuleiro,
@@ -1513,9 +3048,13 @@ h1 span { color: var(--accent); }
     fctx.drawImage(rainLayer, 0, 0, fxW, fxH);
 
     const t = hkT % HK_CYCLE, ease = k => 1 - Math.pow(1 - k, 3);
-    const glitching = (t >= HK.glitch1 && t < HK.emerge) || (t >= HK.glitch2 && t < HK.retreat);
+    // no fim de jogo os Dalís somem e o fundo buga junto com a tela (no começo e a cada bug de idioma)
+    const over = goFx && goFx.kind === "hacker";
+    const glitching = over ? goFx.t < HKGO.mask + 700 || goFx.glitch
+      : (t >= HK.glitch1 && t < HK.emerge) || (t >= HK.glitch2 && t < HK.retreat);
     let p = 0; // 0 = escondidos atrás do tabuleiro, 1 = nos lados
-    if (t >= HK.emerge && t < HK.talk) p = ease((t - HK.emerge) / (HK.talk - HK.emerge));
+    if (over) p = 0;
+    else if (t >= HK.emerge && t < HK.talk) p = ease((t - HK.emerge) / (HK.talk - HK.emerge));
     else if (t >= HK.talk && t < HK.retreat) p = 1;
     else if (t >= HK.retreat && t < HK.gone) p = 1 - ease((t - HK.retreat) / (HK.gone - HK.retreat));
 
@@ -1566,6 +3105,164 @@ h1 span { color: var(--accent); }
   }
   buildHacker();
 
+  // ---------- fim de jogo do tema hacker ----------
+  // A tela pisca, os Dalís somem e o tabuleiro e os painéis "desligam da tomada" (CSS crt-off);
+  // a máscara do V aparece bugando no centro, vai para a esquerda, o balão digita "GAME OVER"
+  // e o menu aparece, os dois centralizados. Depois, de
+  // tempos em tempos, tudo buga e o texto troca para russo (ou japonês, ou grego) por um instante.
+  // A máscara vem da imagem de referência, convertida como o Dalí: pixel art verde de 96×110
+  // nos mesmos 6 tons (a … f, "." = transparente), comprimida por linha.
+  const HKGO = { off: 800, mask: 1500, move: 2400, bubble: 3100, menu: 4300 };
+  const V_W = 96, V_H = 110;
+  const V_RLE = ".49a2.8a.36/.96/.50a.45/.96/.77a.18/.77a.18/.77a.18/.64a7.6b.18/.62a4b4c8b.17/.63a4b5c3d3c.17/.65a4b4c2d4.17/.67a2b4c2d4a.16/.66a3b4c2d4b.16/.66a3b4cd4eb.16/.63a.2a3b3c2d4ec.16/.59a8b5c2d4ec.16/.49a11b10c3d7.16/.57a14b3c3d3a.15/.78a2.16/.96/.96/.96/.96/.36a2b19a3b9a4b7a12.4/.7a9.2a4.4a5b6c33b6a3b17/.4a6.15a5b5c39b2a.18a/.24a5b6c10d10c11dc9ba.18/.23a5b6c6d35c2a.18/.23a4b7c5d24e11d2cb.18/.22a4b7c5d20e17d2b.5a.12/.22a3b8c4d15e18fe5dc.5a2.11/.22a3b6c4d6e3d4e9d2e2f7e9c.5a2.11/.21a4b4c6de15f3e2def12e7d.5a2.11/.21a3b7c5de11f5e2def7e3f4e6d.5a2.11/.21a3b5c7d3e5fef6e4f5edc5def2e6.5a2.11/.21a3b6c3de3d3ef11e2f4edc2de4dc2df2e5.5ab.11/.21a12b2cde5f10ef3edb2de2d4e2dc2f2e4a.4a2.11/.22a3.ab4a.2a2b2de3f9ef3db2cd2e10d2f2e3a.5a.11/.21a2.abc7ba.a2b2df13db2c2de11fe2fe2fb.5a2.10/.21a3b3c2d5c2a.a2bcf11dab2ce6f9efe2fb.5a2.10/.21a2b3c2d2e4d2cba2b2df9ebabce5f13e2fb.5a2.10/.21a3b2c2d2e6dc2a2bdf9eb2de5f14ef2b.2a2.a2.10/.21a3b2c2d2e7dc2b2ef9e7f16e2fb.5a2.10/.21a4bc3de8dc3de2f9e4f17e2fb.5a2.10/.20a5b2c2de2f4e3dcb2cdef7e4f5e6f7e2fb.6a.10/.20a5b2cd9e2dcb3cdef6e4f2e2d6e2f5e3fa.6a.10/.20a5bc3ba2.b2c6b3c2ef6e3fedcba.cb4de2f2e3f2a.6a.10/.20a5b3.5b2.2bcb6cdef7edcababa2ba2bde2d2e3f2a.4a.a.10/.20a8.2a2.6ab6c2ef7ed4cd5e4fe5f2a.4a.a2.9/.20a4bcb6cb2c3b7c2ef7e2d3e7f7e2fea.4a.12/.20a4bc2b3c8b7c2ef8e7f12efea.4a2.11/.20a4bc2dc3dc7b6c2ef27e3.5a2.a.9/.20a4bc2d10c2b6c2ef27e3.5a2.11/.20a4bc2d10c2b6c2ef27e3.5a2.11/.20a3b2c4d8c2b6c2ef16e5f6e2d.6a.11/.20a3b2c4d8cb7c2ef16e6f5e2d.6a.11/.20a3b2c5d6c2b7c2ef15e8f4e2d.6a2.10/.20a3b2c5d5c2b8c2ef15e8f4e2c.6a2.10/.20a3b2c5d4c2b9cdef15e8f4e2c.6a2.10/.20a3b2c10b10cdef16e6f5e2b.6a2.10/.21a3bc8b11c2df17e6f4e2fb.4a.a2.10/.21a3bc7b12c2ef19e3f5e3a.4a.a2.10/.21a3bc7b4a2b2c2b2c2ef12ef13e4a.4a.2a.10/.21a4bc5b3a3b2c3b2c2ef13e3f9e5.5a.2a.10/.21a4b2c3b3a3b4cb4cef14e5f6efe3.5a.2a.10/.21a3b7a3b6cb4cef5e3f8e9f2e2d.5a2.a.10/.21a4cb2a2bcb8c2b4de2fe5f10ed2e4fe3d.5a2.a2.9/.21a4b2aba2cb9cb4c4d2ef11edcded2efe2fc.5a2.a2.9/.21a4b2aba3cb12a5cd2ef10dc2ed2e2fe3b.5a.3a.9/.22a3b2a5b12a3b3c2d2ef7edcbe3defe4a.5a.3a.9/.22a3b2a2ba4b9a4d2abcd4e4d2c2bde5fe3d.6a.3a.9/.22a4cba2ba4b7a4cedcbd2ed2c7bce3de6b.6a.3a.9/.23a3b2a2b2a13be3dbcd5c5b2dfe2defe3d.6a2.3a.9/.23a4cba2b2a12de4cbd5c5def2ede6c.6a.14/.23a4b2a2b6ab5cd8cd6ef5e4fe3da.6a.14/.24a4cba3b3cb17c2d2ef6e8b.7a.14/.24a4bca4b7c4d6e6f8e3fe3d.8a.14/.25a4cba7b4c2d3e5f12e8a.7a2.14/.26a3bcba7b3c2d3e5f11e4fe3c.9a.14/.27a3c2ba7b2c2d3e7f2e2f5e3fe3da.9a.14/.28a2bcb2a6b2c3d4e6f7e4fe3b.10a.14/.28a3bcba5b3c2dcd6ef9e3fe3c.11a.14/.29a2bc2ba4b2c2d3ba2b2cf9e4fe3a.10a.15/.30a2bcba4b2cd4ca2c2ef8e4f2e2c.11a.15/.31a2b2a3b3cd4cabc2f6e6f2e2d.12a.15/.32a2ba4b2c2d2cb4ce11f3eda.12a.15/.32a7b2c4bab4de9f4eb.29/.33a6bc4ba2b4ce8f5c.30/.34a5bc3b2a2b3c2e8f4c.31/.35a5bc2b2a2bac3e7f4d.32/.35a5bc2b2a2bacd2e6f4d.33/.37a4c2b2a2bacd2e3fef4da.33/.37a4bcb2a2bacd2e2f6da.34/.39a3c2ba2bacd2e2f5da.35/.40a2bcba2b2cd2e2f3eda.36/.41a2b2a.b2dce6d.38/.42a2ba2b2c2e5c.39/.43a3.b2c2de2ca.40/.45a.b2c2dcb.42/.47ab2a2.44/.48a2.46/.48a2.46/.96/.96/.96/.96/.96/.96/.96/.96";
+  const V_ROWS = V_RLE.split("/").map(r => r.replace(/([.a-f])(\d*)/g, (_, ch, n) => ch.repeat(n ? +n : 1)));
+  const V_IMG = document.createElement("canvas");
+  V_IMG.width = V_W; V_IMG.height = V_H;
+  {
+    const x2 = V_IMG.getContext("2d");
+    V_ROWS.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== ".") { x2.fillStyle = DALI_PAL[ch]; x2.fillRect(x, y, 1, 1); } }));
+  }
+  // cópias em vermelho e ciano, desenhadas deslocadas quando a máscara buga
+  const tinted = color => {
+    const c = document.createElement("canvas"); c.width = V_W; c.height = V_H;
+    const x2 = c.getContext("2d");
+    x2.drawImage(V_IMG, 0, 0); x2.globalCompositeOperation = "source-atop"; x2.fillStyle = color; x2.fillRect(0, 0, V_W, V_H);
+    return c;
+  };
+  const V_RED = tinted("#ff2a6d"), V_CYAN = tinted("#00e5ff");
+  const HK_LANGS = {
+    pt: { go: "GAME OVER", text: (p, l) => `Você fez ${p} pontos e ${l} linhas.`, b: ["Jogar de novo", "Trocar modo", "Menu principal"], hist: "Últimas partidas", hide: "Esconder partidas" },
+    ru: { go: "ИГРА ОКОНЧЕНА", text: (p, l) => `Вы набрали ${p} очков и ${l} линий.`, b: ["Играть снова", "Сменить режим", "Главное меню"], hist: "Последние игры", hide: "Скрыть игры" },
+    ja: { go: "ゲームオーバー", text: (p, l) => `${p}点、${l}ライン。`, b: ["もう一度", "モード変更", "メインメニュー"], hist: "最近の試合", hide: "隠す" },
+    el: { go: "ΤΕΛΟΣ ΠΑΙΧΝΙΔΙΟΥ", text: (p, l) => `Έκανες ${p} πόντους και ${l} γραμμές.`, b: ["Παίξε ξανά", "Αλλαγή λειτουργίας", "Κύριο μενού"], hist: "Τελευταία παιχνίδια", hide: "Απόκρυψη" }
+  };
+  const HK_GLITCH_LANGS = ["ru", "ru", "ru", "ja", "el"]; // russo na maioria das vezes
+  const hkBubble = $("hkBubble");
+
+  function startHackFx(text, buttons){
+    const g = goFx = {
+      kind: "hacker", t: 0, menu: false, vanish: [], off: false, offEls: [], layoutKey: "", lay: null,
+      lang: "pt", glitch: false, glitchLang: "ru", glitchT0: 0, glitchEnd: 0, nextGlitch: HKGO.menu + 2500 + rand(2000),
+      pts: score.toLocaleString("pt-BR"), lines, bubbleStr: ""
+    };
+    g.els = fillGoMenu(text, buttons);
+    g.onHist = () => setHackLang(g, g.lang, true);
+    hkBubble.hidden = true; hkBubble.textContent = "";
+    gameoverEl.hidden = false;
+    document.body.classList.remove("hk-off");
+    document.body.classList.add("hk-flicker");
+    sizeGo();
+  }
+  function setHackLang(g, lang, force){
+    if (g.lang === lang && !force) return;
+    g.lang = lang;
+    const L = HK_LANGS[lang];
+    $("goText").textContent = L.text(g.pts, g.lines);
+    // ordem dos botões: Jogar de novo, Trocar modo, Últimas partidas, Menu principal
+    const labels = [L.b[0], L.b[1], $("goHistWrap").hidden ? L.hist : L.hide, L.b[2]];
+    g.els.forEach((el, i) => { el.textContent = labels[i]; });
+  }
+  // começo: máscara grande no centro da tela (S0). Quando vai "falar", ela desliza e encolhe (S1)
+  // para a esquerda, e o balão e o menu ficam centralizados. Em tela estreita ela vai para o canto
+  // de cima e o balão fica embaixo dela, com o rabinho para cima.
+  function hackLayout(g){
+    const key = goW + "x" + goH;
+    if (g.layoutKey === key) return g.lay;
+    g.layoutKey = key;
+    const wide = goW >= 760, half = v => Math.max(1.5, Math.round(v * 2) / 2);
+    const S0 = half(Math.min(goH * .55 / V_H, (goW - 32) * .6 / V_W));
+    // "GAME OVER_" em uma linha: no VT323 cada letra tem ~0,4 da altura, o balão todo ~4,6 alturas
+    const fs = Math.round(Math.min(110, (wide ? Math.min(goW * .44, 560) : goW - 32) / 4.8));
+    const bubbleW = fs * 4.6, bubbleH = fs * 1.21 + 6, menuW = Math.min(goW - 32, 320);
+    let lay;
+    if (wide) {
+      const side = (goW - Math.max(bubbleW, menuW)) / 2 - 40; // espaço livre à esquerda do balão, tirando o rabinho
+      const menuTop = goH * .5;
+      lay = { S0, S1: Math.max(1.5, Math.min(S0, Math.floor((side - 16) / V_W * 2) / 2)), x1: 16 + (side - 16) / 2, y1: goH / 2, menuTop };
+      hkBubble.style.top = ""; hkBubble.style.bottom = (goH - menuTop + 30) + "px"; // cresce para cima: trocar de idioma não empurra o menu
+    } else {
+      const S1 = half(Math.min(goH * .2 / V_H, goW * .4 / V_W)), mh1 = V_H * S1, bubbleTop = 16 + mh1 + 26;
+      lay = { S0, S1, x1: 16 + V_W * S1 / 2, y1: 16 + mh1 / 2, menuTop: bubbleTop + bubbleH + 26 };
+      hkBubble.style.bottom = ""; hkBubble.style.top = bubbleTop + "px";
+    }
+    hkBubble.classList.toggle("up", !wide);
+    hkBubble.style.fontSize = fs + "px";
+    goMenu.style.top = Math.round(lay.menuTop) + "px";
+    goMenu.style.width = menuW + "px";
+    return g.lay = lay;
+  }
+
+  function drawHackFx(g){
+    const t = g.t, lay = hackLayout(g);
+    if (!g.off && t >= HKGO.off) {
+      // desliga tudo, cada painel com um atraso diferente
+      g.off = true;
+      g.offEls = [...document.querySelectorAll(".board-wrap, .box, .scorecard, .pad")];
+      g.offEls.forEach(el => { el.style.animationDelay = rand(260) + "ms"; });
+      document.body.classList.add("hk-off");
+    }
+    // véu escuro para a máscara se destacar da chuva de binário
+    const veil = Math.max(0, Math.min(1, (t - HKGO.off) / 800)) * .82;
+    if (veil > 0) { gctx.fillStyle = `rgba(0,0,0,${veil})`; gctx.fillRect(0, 0, goW, goH); }
+
+    // bug de idioma: começa gaguejando entre português e a outra língua, depois fica nela até acabar
+    if (g.menu) {
+      if (!g.glitch && t >= g.nextGlitch) {
+        g.glitch = true; g.glitchT0 = t; g.glitchEnd = t + 500 + rand(900);
+        g.glitchLang = HK_GLITCH_LANGS[rand(HK_GLITCH_LANGS.length)];
+        gameoverEl.classList.add("glitch");
+      }
+      if (g.glitch && t >= g.glitchEnd) {
+        g.glitch = false; g.nextGlitch = t + 2500 + rand(3500);
+        gameoverEl.classList.remove("glitch");
+      }
+      setHackLang(g, g.glitch && (t - g.glitchT0 > 220 || Math.floor((t - g.glitchT0) / 60) % 2) ? g.glitchLang : "pt");
+    }
+
+    if (t >= HKGO.mask) {
+      const m = Math.max(0, Math.min(1, (t - HKGO.move) / (HKGO.bubble - HKGO.move)));
+      const e = m < .5 ? 4 * m * m * m : 1 - Math.pow(-2 * m + 2, 3) / 2; // acelera e freia
+      const S = lay.S0 + (lay.S1 - lay.S0) * e, mw = V_W * S, mh = V_H * S;
+      const mx = goW / 2 + (lay.x1 - goW / 2) * e, my = goH / 2 + (lay.y1 - goH / 2) * e;
+      const x0 = Math.round(mx - mw / 2), y0 = Math.round(my - mh / 2 + Math.sin(t / 600) * S * 1.5);
+      const k = Math.min(1, (t - HKGO.mask) / 700), glitchy = k < 1 || g.glitch;
+      gctx.imageSmoothingEnabled = false;
+      if (glitchy) {
+        gctx.globalAlpha = .65;
+        const o = (2 + rand(4)) * S;
+        gctx.drawImage(V_RED, x0 - o, y0, mw, mh); gctx.drawImage(V_CYAN, x0 + o, y0, mw, mh);
+        gctx.globalAlpha = 1;
+      }
+      // chegando: pisca, falhando cada vez menos
+      if (!(k < 1 && Math.random() < .5 * (1 - k))) gctx.drawImage(V_IMG, x0, y0, mw, mh);
+      gctx.imageSmoothingEnabled = true;
+      if (glitchy) {
+        // faixas da máscara deslocadas para os lados
+        const dpr = window.devicePixelRatio || 1;
+        for (let i = 0; i < 5; i++) {
+          const by = y0 + Math.random() * mh, bh = 2 + Math.random() * mh * .07;
+          gctx.drawImage(gofx, x0 * dpr, by * dpr, mw * dpr, bh * dpr, x0 + (Math.random() - .5) * 30 * S / 2, by, mw, bh);
+        }
+      }
+      // linhas de varredura por cima
+      gctx.fillStyle = "rgba(0,0,0,.35)";
+      for (let y = y0; y < y0 + mh; y += 3) gctx.fillRect(x0, y, mw, 1);
+    }
+
+    if (t >= HKGO.bubble) {
+      // o balão digita "GAME OVER" com cursor piscando; nos bugs mostra a outra língua inteira
+      const full = HK_LANGS[g.lang].go;
+      const n = g.lang === "pt" ? Math.min(full.length, Math.floor((t - HKGO.bubble) / 110) + 1) : full.length;
+      const str = full.slice(0, n) + (Math.floor(t / 400) % 2 ? "_" : " ");
+      if (str !== g.bubbleStr) { g.bubbleStr = str; hkBubble.textContent = str; }
+      hkBubble.hidden = false;
+    }
+    if (!g.menu && t >= HKGO.menu) {
+      g.menu = true;
+      goMenu.hidden = false; void goMenu.offsetWidth; goMenu.classList.add("show");
+    }
+  }
+
   // ---------- laço ----------
   let last = performance.now();
   function update(dt){
@@ -1587,12 +3284,14 @@ h1 span { color: var(--accent); }
     else lockAcc = 0;
   }
   function frame(now){
-    const dt = Math.min(100, now - last); last = now;
+    // nunca negativo: start() e a pausa marcam "last" com performance.now(), que pode ser depois do "now" deste quadro
+    const dt = Math.max(0, Math.min(100, now - last)); last = now;
     update(dt);
     drawBoard(); drawSide();
     if (theme === "padrao") { updateFx(dt); drawFx(); }
     else if (theme === "noir") { updateNoir(dt); drawNoir(); }
     else if (theme === "hacker") { updateHacker(dt); drawHacker(); }
+    if (goFx) drawGoFx(dt);
     requestAnimationFrame(frame);
   }
 
