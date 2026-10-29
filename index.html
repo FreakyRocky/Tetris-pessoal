@@ -145,7 +145,7 @@ body {
   touch-action: manipulation;
 }
 /* a área do jogo ocupa a janela inteira (tirando as margens do body), para o rodapé só aparecer rolando */
-.wrap { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-height: calc(100dvh - 32px); box-sizing: border-box; }
+.wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-height: calc(100dvh - 32px); box-sizing: border-box; }
 /* cena animada de fundo: Pac-Man no tema padrão, rua à noite no noir, binário e Dalís no hacker */
 #bgfx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: none; opacity: .8; }
 :root[data-theme="padrao"] #bgfx, :root[data-theme="noir"] #bgfx, :root[data-theme="hacker"] #bgfx { display: block; }
@@ -278,7 +278,8 @@ h1 span { color: var(--accent); }
   .pad { display: grid; }
 }
 /* no computador a página inteira cabe na janela: o tabuleiro desconta o espaço do título, do placar
-   e das margens (cada tema tem molduras de tamanhos diferentes) */
+   e das margens (cada tema tem molduras de tamanhos diferentes). É só o tamanho inicial: o JS (growBoard)
+   mede o espaço que sobra de verdade e estica o tabuleiro até o fim da janela */
 @media (min-width: 641px) {
   #board { height: min(66vh, 600px, calc(100dvh - 252px)); }
   [data-theme="hacker"] #board { height: min(66vh, 600px, calc(100dvh - 392px)); }
@@ -419,6 +420,8 @@ h1 span { color: var(--accent); }
 .gameover { position: absolute; top: 0; left: 0; right: 0; height: 100vh; z-index: 20; pointer-events: none; overflow: hidden; }
 .gameover[hidden], .go-menu[hidden] { display: none; }
 #gofx { position: absolute; inset: 0; width: 100%; height: 100%; }
+#go3d { position: absolute; inset: 0; width: 100%; height: 100%; display: none; image-rendering: pixelated; }
+.gameover.g3d #go3d { display: block; }
 .go-menu {
   position: absolute; left: 50%; transform: translate(-50%, 12px);
   width: min(300px, calc(100% - 32px));
@@ -590,6 +593,25 @@ body.go-run .board-wrap { visibility: hidden; }
 }
 [data-theme="hacker"] #board { border: 0; box-shadow: none; }
 [data-theme="hacker"] .overlay { inset: 22px 0 0 0; }
+
+/* ---------- alerta de pilha alta: a borda do tabuleiro pisca (--al suave, --ab seco; vêm do JS) ----------
+   padrão: a parede do labirinto pisca no vermelho do Blinky; hacker: a janela do cmd brilha em verde e a
+   barra de título avisa; noir: um contorno branco duro, como o facho de uma lanterna */
+[data-theme="padrao"] .board-wrap.alert { background: color-mix(in srgb, #ff2020 calc(var(--ab) * 100%), var(--wall)); }
+[data-theme="padrao"] .board-wrap.alert #board { box-shadow: 0 0 0 3px color-mix(in srgb, #b00000 calc(var(--ab) * 100%), #0e0b38); }
+[data-theme="hacker"] .board-wrap.alert {
+  border-color: color-mix(in srgb, var(--accent) calc(var(--al) * 100%), #5a5a5a);
+  box-shadow: 0 0 0 1px #000, 0 0 0 calc(var(--al) * 2px) var(--accent),
+    0 0 calc(var(--al) * 40px) calc(var(--al) * 4px) color-mix(in srgb, #39ff14 calc(var(--al) * 80%), transparent), 0 10px 28px rgba(0,0,0,.7);
+}
+[data-theme="hacker"] .board-wrap.alert::before {
+  content: "ALERTA: BUFFER CHEIO";
+  color: color-mix(in srgb, var(--accent) calc(var(--ab) * 100%), #e6e6e6);
+}
+[data-theme="noir"] .board-wrap.alert #board {
+  border-color: color-mix(in srgb, #f4f4f4 calc(var(--ab) * 100%), var(--line));
+  box-shadow: 6px 6px 0 #000, 0 0 0 calc(var(--ab) * 8px) color-mix(in srgb, #f4f4f4 28%, transparent);
+}
 
 /* ---------- tema hacker: fim de jogo ----------
    a tela pisca, os painéis "desligam da tomada" (achatam até virar uma linha clara e somem no meio)
@@ -794,19 +816,19 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
   const popup = $("popup");
 
   let grid, cur, bag, queue, hold, canHold, score, lines, level;
-  let state = "ready", mode = null, diff = null, speed = 1, dropAcc = 0, lockAcc = 0, lockResets = 0;
+  let state = "ready", mode = null, diff = null, speed = 1, boostShown = 1, dropAcc = 0, lockAcc = 0, lockResets = 0;
   const DIFF_NAMES = { facil: "Fácil", medio: "Médio", dificil: "Difícil" };
-  // "do zero": a dificuldade multiplica a velocidade de queda
+  // "do zero": a dificuldade multiplica a velocidade de queda, que ainda acelera com os pontos (scoreBoost)
   // "em andamento": a dificuldade muda a altura da pilha herdada (min/max/início), quantos buracos ela tem,
   // até que profundidade eles vão e quantas linhas a partida já tinha (o que define o nível inicial)
   const MODES = {
     zero: {
       name: "Do zero", short: "Tabuleiro vazio.",
-      text: "Tabuleiro vazio, nível 1. A partida é sua do primeiro bloco ao último.",
+      text: "Tabuleiro vazio, nível 1. A partida é sua do primeiro bloco ao último, e quanto mais pontos, mais rápido tudo cai.",
       diffs: {
-        facil:   { short: "Tudo cai 2x mais rápido.", speed: 2 },
-        medio:   { short: "Tudo cai 4x mais rápido.", speed: 4 },
-        dificil: { short: "Tudo cai 8x mais rápido.", speed: 8 }
+        facil:   { short: "Começa 2x mais rápido e acelera.", speed: 2 },
+        medio:   { short: "Começa 4x mais rápido e acelera.", speed: 4 },
+        dificil: { short: "Começa 8x mais rápido e acelera.", speed: 8 }
       }
     },
     andamento: {
@@ -870,7 +892,11 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     }
     return false;
   }
-  const gravityMs = () => Math.max(40, 1000 * Math.pow(0.8 - (level - 1) * 0.007, level - 1)) / speed;
+  // "do zero": quanto mais pontos, mais rápido (sem teto): com 3.000 pontos tudo cai 2x mais rápido, com
+  // 6.000, 3x... e a peça trava no chão cada vez mais cedo. No fácil fica muito difícil; no difícil, impossível
+  const scoreBoost = () => mode === "zero" && state === "playing" ? 1 + score / 3000 : 1;
+  const gravityMs = () => Math.max(40, 1000 * Math.pow(0.8 - (level - 1) * 0.007, level - 1)) / speed / scoreBoost();
+  const lockMs = () => Math.max(120, LOCK / Math.sqrt(scoreBoost()));
 
   function spawn(type){
     if (!type) { type = queue.shift(); queue.push(fromBag()); }
@@ -926,7 +952,10 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     score += LINE_PTS[n] * level;
     lines += n;
     const newLevel = Math.floor(lines / 10) + 1;
-    const up = newLevel > level ? `Nível ${newLevel}!` : "";
+    // a cada novo "x" da aceleração por pontos, avisa (junto com o nível, se subir também)
+    const boost = Math.floor(scoreBoost()), faster = boost > boostShown;
+    if (faster) boostShown = boost;
+    const up = [newLevel > level ? `Nível ${newLevel}!` : "", faster ? "Mais rápido!" : ""].filter(Boolean).join("\n");
     if (n > 1) showPopup(`COMBO x${n}` + (up ? `\n${up}` : ""), true);
     else showPopup(up || LINE_NAMES[n]);
     level = newLevel;
@@ -943,7 +972,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     while (queue.length < 5) queue.push(fromBag());
     hold = null; canHold = true; clearing = null; cur = null;
     const d = MODES[mode].diffs[diff];
-    speed = d.speed || 1;
+    speed = d.speed || 1; boostShown = 1;
     if (mode === "andamento") {
       grid = midGameGrid(d);
       lines = d.lines[0] + rand(d.lines[1]); level = Math.floor(lines / 10) + 1;
@@ -978,7 +1007,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     ];
     if (theme === "padrao" && !reduceMotion) startGoFx(text, buttons);
     else if (theme === "hacker" && !reduceMotion) startHackFx(text, buttons);
-    else if (theme === "noir" && !reduceMotion) startNoirFx(text, buttons);
+    else if (theme === "noir" && !reduceMotion) (THREE ? startNoir3D : startNoirFx)(text, buttons); // 3D se o Three.js já carregou
     else showOverlay("Fim de jogo", text, buttons);
   }
   function togglePause(){
@@ -1032,6 +1061,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     if (id === "hacker" && !reduceMotion) hkT = 0; // o roteiro do hacker sempre começa do binário
     try { localStorage.setItem("chuva-tema", id); } catch (e) {}
     fitBoard();
+    if (id === "noir") loadThree(); // a sala 3D do fim de jogo do noir; já vai carregando
   }
   function showModes(){
     state = "menu";
@@ -1334,7 +1364,34 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
   });
 
   // ---------- desenho ----------
-  let cell = 30, holdRatio = 2 / 3, nextRatio = 2, nextCount = 4;
+  // no computador, o tabuleiro ocupa toda a altura que sobra na janela (mede onde a coluna do meio, tabuleiro
+  // + placar, termina e cresce ou encolhe a diferença) e é esticado na largura, como uma tela 4:3 esticada
+  // para widescreen: a largura é BOARD_STRETCH × a altura (casas mais largas que altas), sem passar do espaço
+  // entre os painéis. Mesmas 10 colunas e 20 linhas. No celular vale o CSS (casas quadradas)
+  const BOARD_STRETCH = .8;
+  const boardCol = document.querySelector(".board-col"), wrapEl = document.querySelector(".wrap");
+  let growQueued = false;
+  function growBoard(){
+    growQueued = false;
+    if (window.matchMedia("(max-width: 640px)").matches) { board.style.height = board.style.width = board.style.aspectRatio = ""; return; }
+    if (document.body.classList.contains("go-run")) return; // não mexe durante a animação de fim de jogo
+    const pad = $("pad"), padR = pad.offsetParent ? pad.getBoundingClientRect() : null;
+    const bottom = Math.max(boardCol.getBoundingClientRect().bottom, padR ? padR.bottom : 0) + window.scrollY;
+    const cs = getComputedStyle(board), h = parseFloat(cs.height), w = parseFloat(cs.width);
+    const side = Math.max(...[...document.querySelectorAll(".side .box")].map(b => b.offsetWidth));
+    const nh = Math.round(Math.max(240, h + window.innerHeight - 16 - bottom));
+    const nw = Math.round(Math.max(nh / 2, Math.min(nh * BOARD_STRETCH, wrapEl.clientWidth - 2 * (side + 16) - 12)));
+    board.style.aspectRatio = "auto";
+    if (Math.abs(nh - h) <= 1 && Math.abs(nw - w) <= 1) return;
+    board.style.height = nh + "px"; board.style.width = nw + "px";
+    // os fundos animados desviam do tabuleiro: avisa que o tamanho mudou para eles se refazerem
+    window.dispatchEvent(new Event("resize"));
+  }
+  const queueGrow = () => { if (!growQueued) { growQueued = true; requestAnimationFrame(growBoard); } };
+  if (window.ResizeObserver) { const ro = new ResizeObserver(queueGrow); for (const el of [wrapEl, boardCol, document.querySelector("header")]) ro.observe(el); }
+  window.addEventListener("resize", queueGrow);
+  document.fonts?.ready.then(queueGrow);
+  let cell = 30, cellH = 30, holdRatio = 2 / 3, nextRatio = 2, nextCount = 4; // cell = largura da casa
   function fitBoard(){
     const narrow = window.matchMedia("(max-width: 640px)").matches;
     holdRatio = narrow ? 0.6 : 2 / 3; nextRatio = narrow ? 0.6 : 2; nextCount = narrow ? 2 : 4;
@@ -1343,7 +1400,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     const bdpr = THEMES[theme].pixel || dpr; // temas pixelados desenham em resolução mais baixa
     board.width = Math.round(w * bdpr); board.height = Math.round(h * bdpr);
     bctx.setTransform(bdpr, 0, 0, bdpr, 0, 0);
-    cell = w / COLS;
+    cell = w / COLS; cellH = h / ROWS;
     for (const [c, ctx] of [[holdC, hctx], [nextC, nctx]]) {
       const cw = c.clientWidth || 120, ch = cw * (c === holdC ? holdRatio : nextRatio);
       c.width = Math.round(cw * bdpr); c.height = Math.round(ch * bdpr);
@@ -1360,20 +1417,21 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
     return `rgb(${r},${g},${b})`;
   }
-  function block(ctx, x, y, s, color){
-    const p = Math.max(1, s * 0.12);
-    ctx.fillStyle = shade(color, -55); ctx.fillRect(x, y, s, s);
-    ctx.fillStyle = color; ctx.fillRect(x + 1, y + 1, s - 2, s - p - 1);
+  // bloco de largura s e altura sh (no tabuleiro esticado as casas são mais largas que altas)
+  function block(ctx, x, y, s, color, sh = s){
+    const p = Math.max(1, Math.min(s, sh) * 0.12);
+    ctx.fillStyle = shade(color, -55); ctx.fillRect(x, y, s, sh);
+    ctx.fillStyle = color; ctx.fillRect(x + 1, y + 1, s - 2, sh - p - 1);
     ctx.fillStyle = shade(color, 45); ctx.fillRect(x + 1, y + 1, s - 2, p);
     ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(x + p + 1, y + p + 1, p, p);
   }
   function drawBoard(){
-    const w = cell * COLS, h = cell * ROWS;
+    const cw = cell, ch = cellH, w = cw * COLS, h = ch * ROWS;
     bctx.fillStyle = THEMES[theme].board; bctx.fillRect(0, 0, w, h);
     bctx.strokeStyle = THEMES[theme].grid; bctx.lineWidth = 1;
     bctx.beginPath();
-    for (let x = 1; x < COLS; x++) { bctx.moveTo(x * cell + .5, 0); bctx.lineTo(x * cell + .5, h); }
-    for (let y = 1; y < ROWS; y++) { bctx.moveTo(0, y * cell + .5); bctx.lineTo(w, y * cell + .5); }
+    for (let x = 1; x < COLS; x++) { bctx.moveTo(x * cw + .5, 0); bctx.lineTo(x * cw + .5, h); }
+    for (let y = 1; y < ROWS; y++) { bctx.moveTo(0, y * ch + .5); bctx.lineTo(w, y * ch + .5); }
     bctx.stroke();
     if (!grid) return;
 
@@ -1383,17 +1441,17 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
       if (!t) continue;
       if (clearing && clearing.includes(y)) {
         bctx.fillStyle = flash ? THEMES[theme].flash : shade(COLORS[t], 60);
-        bctx.fillRect(x * cell, y * cell, cell, cell);
-      } else block(bctx, x * cell, y * cell, cell, COLORS[t]);
+        bctx.fillRect(x * cw, y * ch, cw, ch);
+      } else block(bctx, x * cw, y * ch, cw, COLORS[t], ch);
     }
     if (!cur) return;
     // fantasma
     let gy = cur.y;
     while (!collide(cur.m, cur.x, gy + 1)) gy++;
     bctx.strokeStyle = COLORS[cur.type]; bctx.globalAlpha = .45; bctx.lineWidth = 2;
-    eachCell(cur.m, (c, r) => { const yy = gy + r; if (yy >= 0) bctx.strokeRect((cur.x + c) * cell + 2, yy * cell + 2, cell - 4, cell - 4); });
+    eachCell(cur.m, (c, r) => { const yy = gy + r; if (yy >= 0) bctx.strokeRect((cur.x + c) * cw + 2, yy * ch + 2, cw - 4, ch - 4); });
     bctx.globalAlpha = 1;
-    eachCell(cur.m, (c, r) => { const yy = cur.y + r; if (yy >= 0) block(bctx, (cur.x + c) * cell, yy * cell, cell, COLORS[cur.type]); });
+    eachCell(cur.m, (c, r) => { const yy = cur.y + r; if (yy >= 0) block(bctx, (cur.x + c) * cw, yy * ch, cw, COLORS[cur.type], ch); });
   }
   function eachCell(m, fn){ for (let r = 0; r < m.length; r++) for (let c = 0; c < m.length; c++) if (m[r][c]) fn(c, r); }
   function mini(ctx, type, cx, cy, s, dim){
@@ -1829,17 +1887,19 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     if (!goFx) return;
     for (const v of goFx.vanish) v.el.style.clipPath = v.el.style.visibility = "";
     for (const el of goFx.offEls || []) el.style.animationDelay = "";
+    if (goFx.kind === "noir3d") { disposeNoir3D(goFx.s3); gameoverEl.classList.remove("g3d"); }
     goFx = null;
     gameoverEl.hidden = true; goMenu.hidden = true; goMenu.classList.remove("show");
     gameoverEl.classList.remove("glitch"); $("hkBubble").hidden = true;
     goMenu.style.left = goMenu.style.width = ""; goMenu.classList.remove("on-folder");
     gameoverEl.style.transform = "";
     document.body.classList.remove("go-run", "hk-flicker", "hk-off");
+    queueGrow(); // se a janela mudou de tamanho durante a animação
   }
   function skipGoFx(){
     if (!goFx) return;
     if (goFx.kind === "noir") goFx.skip = true; // no noir: tudo já entra no saco de uma vez
-    goFx.t = Math.max(goFx.t, goFx.kind === "hacker" ? HKGO.menu : goFx.kind === "noir" ? NGO.menu : GO_MENU_AT);
+    goFx.t = Math.max(goFx.t, goFx.kind === "hacker" ? HKGO.menu : goFx.kind === "noir" ? NGO.menu : goFx.kind === "noir3d" ? N3.menu : GO_MENU_AT);
   }
 
   // bolinhas: cada parte da tela (com tudo o que tinha: peças, textos, molduras) se quebra em pedaços
@@ -2064,6 +2124,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     gctx.clearRect(0, 0, goW, goH);
     if (g.kind === "hacker") { drawHackFx(g); return; }
     if (g.kind === "noir") { drawNoirFx(g, dt); return; }
+    if (g.kind === "noir3d") { drawNoir3D(g, dt); return; }
     if (!g.path) buildPath(g);
     // Pac-Man gigante: entra pela direita e come as bolinhas do caminho, uma a uma
     const R = pacR(), speed = (goW + 2 * R + 20) / GO_PAC_MS;
@@ -2690,6 +2751,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
   // cresce quando vem na direção da câmera) e fecha. Aí a câmera gira 90° e chega mais perto, e a pasta
   // fica em pé na tela: na capa, datilografado, "GAME OVER" com o número do caso, o carimbo "CASO
   // ENCERRADO" e os botões; ao lado, a ficha do caso (detetive, local, data e as provas: pontos e linhas).
+  // Na mesa, as coisas de um detetive dos anos 1940: café quente, cinzeiro, revólver, telefone, plaquinha.
   const NGO = { zoomMs: 1700, close: 1800, closeMs: 800, roll: 2650, rollMs: 950, title: 3600, typeGap: 75, stamp: 4400, card: 3500, cardMs: 500, lines: 3900, lineGap: 110, menu: 4500 };
   const CASE_NO = "1947/07-731";
   const ease = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
@@ -2729,7 +2791,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     return { Pw, Ph, m, spine, px: spine + m, py, top, Wc, Hc, sF, F: { x: fcx - fw / 2, y: goH / 2 - fh / 2, w: fw, h: fh, cx: fcx } };
   }
 
-  // mesa do detetive: tábuas escuras com veios, objetos espalhados e a luz da luminária sobre a pasta;
+  // mesa do detetive: tábuas escuras com veios e a luz da luminária sobre a pasta (os objetos vêm por cima);
   // desenhada em baixa resolução, pontilhada nos 8 tons do tema e ampliada sem suavizar. Cobre um
   // quadrado bem maior que a tela, porque a câmera gira e mostra mais mesa nos lados
   function buildDesk(L){
@@ -2745,15 +2807,6 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
       for (let k = 0; k < 9; k++) c.fillRect(ox + rand(D), y + 8 + rand(34), 60 + rand(220), 2);      // veios
     }
     const cx = L.spine + L.Wc / 2, cy = L.top + L.Hc / 2;
-    // xícara de café, lupa, lápis e fotos, espalhados em volta da pasta
-    const mug = (x, y) => { c.fillStyle = "#cfcfcf"; circle(c, x, y, 38); c.fillRect(x + 30, y - 8, 26, 16); c.fillStyle = "#1a1a1a"; circle(c, x, y, 28); c.fillStyle = "rgba(255,255,255,.25)"; circle(c, x - 9, y - 9, 6); };
-    const lens = (x, y, r) => { c.save(); c.translate(x, y); c.rotate(r); c.fillStyle = "#3a3a3a"; c.fillRect(36, -9, 90, 18); c.fillStyle = "#9a9a9a"; circle(c, 0, 0, 42); c.fillStyle = "#4e4e4e"; circle(c, 0, 0, 33); c.fillStyle = "rgba(255,255,255,.3)"; c.fillRect(-18, -20, 10, 10); c.restore(); };
-    const pencil = (x, y, r) => { c.save(); c.translate(x, y); c.rotate(r); c.fillStyle = "#8a8a8a"; c.fillRect(0, 0, 170, 12); c.fillStyle = "#cfcfcf"; c.fillRect(170, 0, 18, 12); c.fillStyle = "#222"; c.fillRect(188, 4, 8, 4); c.restore(); };
-    const photo = (x, y, r) => { c.save(); c.translate(x, y); c.rotate(r); c.fillStyle = "#d8d8d8"; c.fillRect(-55, -42, 110, 84); c.fillStyle = "#3e3e3e"; c.fillRect(-47, -34, 94, 60); c.fillStyle = "#6a6a6a"; c.fillRect(-30, -10, 24, 36); circle(c, -18, -18, 10); c.restore(); };
-    mug(L.spine - L.Wc - 60, L.top - 30); mug(cx + L.Hc * .25, cy + L.Wc * .62);
-    lens(L.spine + L.Wc + 50, L.top + L.Hc + 30, -.6); lens(cx - L.Hc * .7, cy - L.Wc * .55, .9);
-    pencil(L.spine - L.Wc, L.top + L.Hc + 34, .15); pencil(cx + L.Hc * .55, cy - L.Wc * .5, 1.7);
-    photo(L.spine + L.Wc - 30, L.top - 45, .18); photo(L.spine + L.Wc + 30, L.top - 15, -.12); photo(cx - L.Hc * .62, cy + L.Wc * .45, -.3);
     // luz da luminária sobre a pasta, e escurecendo para longe
     const lamp = c.createRadialGradient(cx, cy, 20, cx, cy, Math.max(goW, goH) * .75);
     lamp.addColorStop(0, "rgba(255,255,255,.22)"); lamp.addColorStop(.5, "rgba(255,255,255,.05)"); lamp.addColorStop(1, "rgba(0,0,0,.6)");
@@ -2765,6 +2818,136 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     }
     c.putImageData(im, 0, 0);
     return { img: lo, x: ox, y: oy, D };
+  }
+
+  // objetos da mesa de um detetive dos anos 1940. Cada um é colocado num lugar livre da cena final (pasta
+  // em pé, ficha à direita) e desenhado de pé para essa cena; antes disso estão na mesa do mesmo jeito e
+  // giram junto com a câmera. São desenhados a cada quadro (não na mesa pixelada) para a fumaça do café
+  // e do cigarro subir e o nome na plaquinha ficar nítido.
+  const DETECTIVE = "DET. RUST COHLE";
+  function caseCardRect(F){
+    const room = goW - (F.x + F.w) - 30, cw = Math.max(220, Math.min(380, room - 20)), ch = cw * .82;
+    return { x: F.x + F.w + 30 + Math.max(0, (room - cw) / 2), y: goH / 2 - ch / 2, w: cw, h: ch };
+  }
+  function drawDeskItems(c, L, t){
+    const F = L.F, card = caseCardRect(F), u0 = Math.min(goW, goH) / 725;
+    // posição na cena final (tela) → posição na mesa (mundo), desfazendo o giro e o zoom finais da câmera
+    const toWorld = (px, py) => {
+      const dx = (px - F.cx) / L.sF, dy = (py - goH / 2) / L.sF;
+      return [L.spine + L.Wc / 2 - dy, L.top + L.Hc / 2 + dx];
+    };
+    const place = (px, py, rot, u, draw) => {
+      const [wx, wy] = toWorld(px, py);
+      c.save(); c.translate(wx, wy); c.rotate(Math.PI / 2 + rot); c.scale(1 / L.sF, 1 / L.sF);
+      draw(u); c.restore();
+    };
+    const blob = (x, y, w, h, fill) => { c.fillStyle = "#000"; c.fillRect(x - 3, y - 3, w + 6, h + 6); c.fillStyle = fill; c.fillRect(x, y, w, h); };
+    const disc = (x, y, r, fill) => { c.fillStyle = "#000"; circle(c, x, y, r + 3); c.fillStyle = fill; circle(c, x, y, r); };
+    // fumaça: fiapos de "pixels" que sobem balançando e somem
+    const smoke = (x, y, u, n, height) => {
+      for (let k = 0; k < n; k++) for (let j = 0; j < 12; j++) {
+        const rise = (j * height / 12 + t / 30 + k * 17) % height, a = (1 - rise / height) * .35;
+        const sx = x + Math.sin(rise / 14 + t / 400 + k * 2) * 7 * u * (rise / height + .3) + (k - (n - 1) / 2) * 7 * u;
+        c.fillStyle = `rgba(230,230,230,${a})`; c.fillRect(Math.round(sx), Math.round(y - rise), 4 * u, 4 * u);
+      }
+    };
+
+    // fotos da cena do crime, saindo por baixo da pasta
+    place(F.x + 14, F.y + F.h * .2, -.25, u0, () => {
+      blob(-60, -46, 120, 92, "#d8d8d8"); c.fillStyle = "#3e3e3e"; c.fillRect(-52, -38, 104, 66);
+      c.fillStyle = "#6a6a6a"; c.fillRect(-34, -14, 26, 40); circle(c, -21, -22, 11);
+    });
+    // jornal, por baixo da ficha do caso
+    place(card.x + card.w * .7, card.y + 6, .12, u0, u => {
+      blob(-110 * u, -70 * u, 220 * u, 140 * u, "#c4c4c4");
+      c.fillStyle = "#1a1a1a"; c.font = `bold ${Math.round(17 * u)}px Georgia, "Times New Roman", serif`; c.textAlign = "center";
+      c.fillText("THE TIMES", 0, -46 * u);
+      c.fillStyle = "#555"; c.fillRect(-100 * u, -40 * u, 200 * u, 2);
+      c.font = `${Math.round(8 * u)}px Georgia, serif`; c.fillStyle = "#333"; c.fillText("LONDRES · NOVEMBRO DE 1947", 0, -30 * u);
+      c.fillStyle = "#8a8a8a"; for (let i = 0; i < 6; i++) c.fillRect(-100 * u + (i % 2) * 104 * u, -20 * u + Math.floor(i / 2) * 26 * u, 96 * u, 20 * u);
+    });
+
+    // coluna da esquerda: chapéu, cinzeiro com cigarro e a carteira de cigarros, revólver no coldre
+    const lx = F.x / 2, lu = u0 * Math.min(1, F.x / 240);
+    if (F.x > 120) {
+      place(lx, goH * .17, -.2, lu, u => {                                                  // chapéu fedora (visto de cima)
+        c.fillStyle = "#000"; c.beginPath(); c.ellipse(0, 0, 72 * u, 58 * u, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#2e2e2e"; c.beginPath(); c.ellipse(0, 0, 68 * u, 54 * u, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#151515"; c.beginPath(); c.ellipse(0, 0, 42 * u, 33 * u, 0, 0, Math.PI * 2); c.fill();   // fita
+        c.fillStyle = "#3e3e3e"; c.beginPath(); c.ellipse(0, -2 * u, 37 * u, 28 * u, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#2a2a2a"; c.fillRect(-3 * u, -24 * u, 6 * u, 44 * u);                                     // vinco da copa
+      });
+      place(lx - 26 * lu, goH * .47, 0, lu, u => {                                          // cinzeiro com o cigarro pela metade
+        disc(0, 0, 34 * u, "#6a6a6a"); c.fillStyle = "#3a3a3a"; circle(c, 0, 0, 24 * u);
+        c.fillStyle = "#555"; for (const a of [0, 2.1, 4.2]) c.fillRect(Math.cos(a) * 29 * u - 4 * u, Math.sin(a) * 29 * u - 3 * u, 8 * u, 6 * u);
+        c.fillStyle = "#8a8a8a"; circle(c, -6 * u, 6 * u, 5 * u); circle(c, 5 * u, -8 * u, 4 * u);                 // bitucas e cinza
+        c.save(); c.rotate(-.5); c.fillStyle = "#000"; c.fillRect(10 * u, -5 * u, 44 * u, 10 * u);
+        c.fillStyle = "#e8e8e8"; c.fillRect(12 * u, -3 * u, 30 * u, 6 * u); c.fillStyle = "#b0b0b0"; c.fillRect(42 * u, -3 * u, 10 * u, 6 * u);
+        c.fillStyle = "#7a7a7a"; c.fillRect(8 * u, -3 * u, 5 * u, 6 * u);
+        c.fillStyle = `rgba(255,255,255,${.6 + .4 * Math.sin(t / 250)})`; c.fillRect(6 * u, -2 * u, 3 * u, 4 * u); // brasa
+        c.restore();
+        smoke(-4 * u, 6 * u, u, 1, 90 * u);
+      });
+      place(lx + 50 * lu, goH * .5, .25, lu, u => {                                        // carteira de cigarros e fósforos
+        blob(-22 * u, -32 * u, 44 * u, 64 * u, "#d0d0d0");
+        c.fillStyle = "#2a2a2a"; c.fillRect(-22 * u, -6 * u, 44 * u, 16 * u);
+        c.fillStyle = "#e6e6e6"; c.font = `bold ${Math.round(7 * u)}px ${TYPE}`; c.textAlign = "center"; c.fillText("CIGARROS", 0, 4 * u);
+        c.fillStyle = "#f2f2f2"; for (const x2 of [-12, -2, 8]) c.fillRect(x2 * u, -44 * u, 6 * u, 14 * u);
+        c.fillStyle = "#a0a0a0"; for (const x2 of [-12, -2, 8]) c.fillRect(x2 * u, -44 * u, 6 * u, 5 * u);
+        blob(6 * u, 40 * u, 30 * u, 18 * u, "#9a9a9a"); c.fillStyle = "#3a3a3a"; c.fillRect(6 * u, 46 * u, 30 * u, 5 * u);
+      });
+      place(lx, goH * .8, -.35, lu, u => {                                                  // revólver no coldre de couro
+        const holster = new Path2D();
+        holster.moveTo(-20 * u, -30 * u); holster.lineTo(22 * u, -30 * u); holster.lineTo(26 * u, 40 * u); holster.quadraticCurveTo(0, 62 * u, -24 * u, 40 * u); holster.closePath();
+        c.lineWidth = 6; c.strokeStyle = "#000"; c.stroke(holster); c.fillStyle = "#4a4a4a"; c.fill(holster);
+        c.fillStyle = "#6a6a6a"; for (let i = 0; i < 7; i++) c.fillRect(-16 * u + i * 0, -24 * u + i * 10 * u, 3 * u, 3 * u);  // costura
+        blob(-34 * u, -36 * u, 68 * u, 10 * u, "#3a3a3a");                                                           // presilha do cinto
+        // a coronha e o tambor saindo do coldre
+        blob(-12 * u, -66 * u, 24 * u, 34 * u, "#5a5a5a"); c.fillStyle = "#7a7a7a"; c.fillRect(-12 * u, -66 * u, 24 * u, 6 * u);
+        c.fillStyle = "#2e2e2e"; for (let i = 0; i < 4; i++) c.fillRect(-8 * u, -58 * u + i * 6 * u, 16 * u, 2 * u);  // ranhuras da madeira
+        disc(0, -26 * u, 13 * u, "#8a8a8a"); c.fillStyle = "#3a3a3a"; for (const a of [0, 1.05, 2.1, 3.14, 4.19, 5.24]) circle(c, Math.cos(a) * 7 * u, -26 * u + Math.sin(a) * 7 * u, 2.5 * u);
+        c.strokeStyle = "#000"; c.lineWidth = 4 * u; c.beginPath(); c.arc(16 * u, -34 * u, 9 * u, -.5, 2.2); c.stroke();             // guarda-mato
+      });
+    }
+
+    // acima da ficha: café quente e o telefone de disco
+    const rx = card.x + card.w / 2, topY = Math.max(60 * u0, card.y / 2), botY = Math.min(goH - 50 * u0, (card.y + card.h + goH) / 2);
+    place(rx - card.w * .26, topY, 0, u0, u => {                                            // xícara de café com pires
+      disc(0, 0, 40 * u, "#bcbcbc"); disc(0, 0, 27 * u, "#e6e6e6");
+      c.fillStyle = "#1c1c1c"; circle(c, 0, 0, 21 * u); c.fillStyle = "rgba(255,255,255,.18)"; circle(c, -7 * u, -7 * u, 5 * u);
+      blob(27 * u, -6 * u, 16 * u, 12 * u, "#e6e6e6");                                                              // asa
+      smoke(0, -6 * u, u, 3, 110 * u);
+    });
+    place(rx + card.w * .24, topY, -.15, u0, u => {                                         // telefone preto de disco
+      blob(-48 * u, -34 * u, 96 * u, 68 * u, "#1c1c1c");
+      c.fillStyle = "#3a3a3a"; c.fillRect(-48 * u, -34 * u, 96 * u, 6 * u);
+      blob(-54 * u, -50 * u, 108 * u, 16 * u, "#262626"); disc(-46 * u, -42 * u, 13 * u, "#262626"); disc(46 * u, -42 * u, 13 * u, "#262626"); // fone no gancho
+      disc(0, 6 * u, 22 * u, "#d6d6d6"); c.fillStyle = "#1c1c1c"; circle(c, 0, 6 * u, 8 * u);
+      c.fillStyle = "#555"; for (let i = 0; i < 10; i++) { const a = -2.4 + i * .48; circle(c, Math.cos(a) * 15 * u, 6 * u + Math.sin(a) * 15 * u, 3 * u); }
+      c.strokeStyle = "#111"; c.lineWidth = 3; c.beginPath(); c.moveTo(48 * u, 20 * u);
+      for (let i = 0; i < 8; i++) c.quadraticCurveTo(60 * u + i * 6 * u, (i % 2 ? 10 : 30) * u, 66 * u + i * 6 * u, 20 * u); c.stroke();  // fio enrolado
+    });
+    // abaixo da ficha: a plaquinha com o nome do detetive e o relógio de bolso
+    place(rx + card.w * .08, botY, 0, u0, u => {
+      const w = 240 * u, h = 52 * u, plate = new Path2D();
+      plate.moveTo(-w / 2, h / 2); plate.lineTo(-w / 2 + 12 * u, -h / 2); plate.lineTo(w / 2 - 12 * u, -h / 2); plate.lineTo(w / 2, h / 2); plate.closePath();
+      c.lineWidth = 6; c.strokeStyle = "#000"; c.stroke(plate); c.fillStyle = "#3a3a3a"; c.fill(plate);             // bloco de madeira
+      c.fillStyle = "#2a2a2a"; for (let i = 0; i < 4; i++) c.fillRect(-w / 2 + 16 * u, -h / 2 + 8 * u + i * 10 * u, w - 32 * u, 2);
+      blob(-w / 2 + 22 * u, -h / 2 + 7 * u, w - 44 * u, h - 14 * u, "#cfcfcf");                                     // plaquinha de latão
+      c.fillStyle = "rgba(255,255,255,.4)"; c.fillRect(-w / 2 + 22 * u, -h / 2 + 7 * u, w - 44 * u, 4 * u);
+      c.fillStyle = "#111"; c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = `bold ${Math.round(17 * u)}px ${TYPE}`; c.fillText(DETECTIVE, 0, -4 * u);
+      c.font = `${Math.round(8 * u)}px ${TYPE}`; c.fillText("DIVISÃO DE HOMICÍDIOS", 0, 11 * u);
+      c.textBaseline = "alphabetic";
+    });
+    place(rx - card.w * .42, botY + 6 * u0, .3, u0, u => {                                 // relógio de bolso com corrente
+      c.strokeStyle = "#8a8a8a"; c.lineWidth = 3 * u;
+      c.beginPath(); c.moveTo(0, -22 * u); c.bezierCurveTo(20 * u, -50 * u, 50 * u, -30 * u, 60 * u, -46 * u); c.stroke();
+      disc(0, 0, 20 * u, "#bdbdbd"); disc(0, 0, 15 * u, "#ececec"); blob(-3 * u, -27 * u, 6 * u, 6 * u, "#bdbdbd");
+      c.strokeStyle = "#111"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -10 * u); c.moveTo(0, 0); c.lineTo(7 * u, 3 * u); c.stroke();
+    });
+    c.textAlign = "start";
   }
 
   // retângulo com borda preta de 3px (o traço dos objetos do tema)
@@ -2847,7 +3030,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     c.fillStyle = "#5a5a5a"; c.fillRect(-cw / 2 + 10, -ch / 2 + ch * .17, cw - 20, 2);
     const rows = [
       ["SCOTLAND YARD", true], ["DEPTO. DE INVESTIGAÇÃO CRIMINAL", false], ["CASO Nº " + CASE_NO, true],
-      ["DETETIVE: INSP. ARTHUR HOLLOWAY", false], ["LOCAL: WHITECHAPEL, LONDRES", false], ["DATA: 14 DE NOVEMBRO DE 1947", false],
+      ["DETETIVE: " + DETECTIVE, false], ["LOCAL: WHITECHAPEL, LONDRES", false], ["DATA: 14 DE NOVEMBRO DE 1947", false],
       [`PROVAS: ${g.pts} PONTOS, ${g.lines} LINHAS`, false], ["SUSPEITO: FORAGIDO", true]
     ];
     const fs = Math.round(cw * .042), shown = Math.floor((t - NGO.lines) / NGO.lineGap) + 1;
@@ -2876,6 +3059,7 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
     gctx.imageSmoothingEnabled = false;
     gctx.drawImage(g.desk.img, g.desk.x, g.desk.y, g.desk.D, g.desk.D);
     gctx.imageSmoothingEnabled = true;
+    drawDeskItems(gctx, L, t);
 
     // pasta: sombra na mesa, o fundo com a folha da foto (o clipe fica por fora dela) e a capa
     const theta = Math.PI * ease(span(t, NGO.close, NGO.closeMs));
@@ -2905,6 +3089,861 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
       goMenu.style.top = Math.round(F.y + F.h * .42) + "px";
       goMenu.style.width = Math.round(Math.min(300, F.w * .8)) + "px";
       goMenu.hidden = false; void goMenu.offsetWidth; goMenu.classList.add("show");
+    }
+  }
+
+  // ---------- fim de jogo do tema noir em 3D: a sala do detetive ----------
+  // Cena em 3D de verdade (Three.js, carregado só quando o tema noir está em uso; sem ele, vale a versão
+  // 2D acima). A câmera começa de cima, com a folha da pasta ocupando a tela exatamente como o jogo
+  // estava; sobe e revela a mesa; a capa da pasta fecha girando na dobradiça; a câmera desce até o ponto
+  // de vista de quem está sentado à mesa, e a pasta é pega e fica de pé, de frente: na capa, "GAME OVER"
+  // datilografado e o carimbo "CASO ENCERRADO"; os botões da página ficam em cima dela. Ao lado, a ficha
+  // do caso apoiada nos livros. A sala está vazia e é madrugada: janela com a lua e o Big Ben, lousa de
+  // casos (com o de Jack, o Estripador), relógio de parede, arquivo de aço, luminária acesa, e na mesa o
+  // café ainda fumegando, o cigarro no cinzeiro, a pistola Glock, telefone, chapéu, relógio
+  // de bolso, a plaquinha do Rust Cohle, jornal e fotos. Tudo passa por um filtro que deixa em tons de
+  // cinza pontilhados, como o resto do tema (com tons a mais que no 2D, para os textos ficarem legíveis).
+  const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+  let THREE = null, threeLoading = null, r3 = null;
+  function loadThree(){
+    if (!threeLoading) threeLoading = import(THREE_URL).then(m => (THREE = m)).catch(() => null);
+    return threeLoading;
+  }
+  const N3 = { zoomMs: 1600, close: 1500, closeMs: 900, pov: 2450, povMs: 1900, type: 4400, typeGap: 75, stamp: 5250, lines: 4350, lineGap: 110, menu: 5350, pix: 1 };
+  const RIPPER_SPOTS = ["BUCK'S ROW", "HANBURY ST.", "BERNER ST.", "MITRE SQ.", "DORSET ST."]; // onde foram as vítimas, em 1888
+
+  // renderizador (criado uma vez) e o filtro final: cinza, pontilhado ordenado leve e 16 tons (leve para
+  // não esfarelar as letras)
+  function ensureRenderer(){
+    if (r3) return r3;
+    const T = THREE, canvas = document.createElement("canvas");
+    canvas.id = "go3d"; canvas.setAttribute("aria-hidden", "true");
+    gameoverEl.insertBefore(canvas, gofx.nextSibling);
+    const renderer = new T.WebGLRenderer({ canvas, antialias: false });
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+    const rt = new T.WebGLRenderTarget(2, 2, { minFilter: T.NearestFilter, magFilter: T.NearestFilter });
+    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], data = new Uint8Array(64);
+    bayer.forEach((v, i) => { data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v * 16; data[i * 4 + 3] = 255; });
+    const dither = new T.DataTexture(data, 4, 4);
+    dither.magFilter = dither.minFilter = T.NearestFilter; dither.wrapS = dither.wrapT = T.RepeatWrapping; dither.needsUpdate = true;
+    const post = new T.ShaderMaterial({
+      uniforms: { tDiffuse: { value: rt.texture }, tDither: { value: dither }, res: { value: new T.Vector2(1, 1) } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }",
+      fragmentShader: `uniform sampler2D tDiffuse; uniform sampler2D tDither; uniform vec2 res; varying vec2 vUv;
+        void main(){
+          vec3 c = texture2D(tDiffuse, vUv).rgb;
+          float l = pow(clamp(dot(c, vec3(.299, .587, .114)), 0., 1.), 1. / 2.2);
+          float d = texture2D(tDither, vUv * res / 4.).r - .47;
+          l = clamp(l + d / 30., 0., 1.);
+          l = floor(l * 15. + .5) / 15.;
+          gl_FragColor = vec4(vec3(l), 1.);
+        }`,
+      depthTest: false, depthWrite: false
+    });
+    const postScene = new T.Scene();
+    postScene.add(new T.Mesh(new T.PlaneGeometry(2, 2), post));
+    r3 = { canvas, renderer, rt, post, postScene, postCam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1), w: 0, h: 0 };
+    return r3;
+  }
+
+  // textura feita num canvas (desenhada por draw(ctx, w, h)); redraw() a refaz (para o que é datilografado)
+  function canvasTex(w, h, draw){
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d"), t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    t.redraw = (...args) => { x.clearRect(0, 0, w, h); draw(x, w, h, ...args); t.needsUpdate = true; };
+    t.redraw();
+    return t;
+  }
+  const chalk = (x, s, px, py, size, opts = {}) => {
+    // giz: letra de forma bem legível, com um leve "pó" deslocado em volta
+    x.font = `${opts.bold ? "bold " : "600 "}${size}px "Segoe UI", Arial, Helvetica, sans-serif`;
+    x.textAlign = opts.align || "left";
+    x.fillStyle = "rgba(235,235,235,.3)"; x.fillText(s, px + 2, py + 1.5);
+    x.fillStyle = "#f4f4f4"; x.fillText(s, px, py);
+  };
+
+  // campo de visão vertical: 50° em telas largas; nas mais estreitas abre, para a lousa e a janela continuarem cabendo
+  const n3Fov = aspect => aspect >= 1.6 ? 50 : 2 * Math.atan(Math.tan(25 * Math.PI / 180) * 1.6 / aspect) * 180 / Math.PI;
+
+  function buildNoir3D(g){
+    const T = THREE, scene = new T.Scene(), aspect = goW / goH;
+    scene.background = new T.Color(0x050505);
+    const all = []; // tudo o que é criado aqui, para liberar a memória depois
+    const keep = o => (all.push(o), o);
+    const std = (hex, rough = .8, metal = 0, extra = {}) => keep(new T.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal, ...extra }));
+    const add = (geo, mat, x, y, z, parent = scene) => {
+      const m = new T.Mesh(keep(geo), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+    };
+    const lathe = (pts, mat, x, y, z, parent) => add(new T.LatheGeometry(pts.map(([r, h]) => new T.Vector2(r, h)), 32), mat, x, y, z, parent);
+    const tex = (w, h, draw) => keep(canvasTex(w, h, draw));
+    const texMat = (t, extra = {}) => std(0xffffff, .85, 0, { map: t, ...extra });
+
+    // ----- a sala: a mesa fica perto; a parede do fundo (lousa, relógio e janela) bem mais longe -----
+    // a neblina escura apaga aos poucos o que está longe, e assim dá para sentir a distância
+    scene.fog = new T.Fog(0x050505, 3.2, 11);
+    const ROOM_Z = -2.9;                                                                 // parede do fundo
+    const rod = (a, b, r, mat, parent = scene) => {                                       // cilindro de a até b
+      const A = new T.Vector3(...a), d = new T.Vector3(...b).sub(A);
+      const m = add(new T.CylinderGeometry(r, r, d.length(), 10), mat, A.x + d.x / 2, A.y + d.y / 2, A.z + d.z / 2, parent);
+      m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); return m;
+    };
+    const wood = tex(512, 512, (x, w, h) => {
+      for (let i = 0; i < 8; i++) {
+        x.fillStyle = ["#5a5a5a", "#525252", "#5e5e5e", "#555"][i % 4]; x.fillRect(0, i * 64, w, 64);
+        x.fillStyle = "#2a2a2a"; x.fillRect(0, i * 64, w, 3);
+        x.fillStyle = "rgba(0,0,0,.25)"; for (let k = 0; k < 14; k++) x.fillRect(rand(w), i * 64 + 6 + rand(54), 40 + rand(180), 2);
+      }
+    });
+    wood.wrapS = wood.wrapT = T.RepeatWrapping;
+    const floorTex = wood.clone(); floorTex.repeat.set(7, 7); floorTex.needsUpdate = true; keep(floorTex);
+    add(new T.PlaneGeometry(9, 9), std(0x3a3a3a, .85, 0, { map: floorTex }), 0, -.75, -.6).rotation.x = -Math.PI / 2;
+    const paper = tex(256, 256, (x, w, h) => {                                     // papel de parede listrado
+      x.fillStyle = "#4a4a4a"; x.fillRect(0, 0, w, h);
+      x.fillStyle = "#424242"; for (let i = 0; i < w; i += 32) x.fillRect(i, 0, 14, h);
+      x.fillStyle = "rgba(255,255,255,.04)"; for (let i = 0; i < 300; i++) x.fillRect(rand(w), rand(h), 2, 2);
+    });
+    paper.wrapS = paper.wrapT = T.RepeatWrapping; paper.repeat.set(14, 7);
+    const wallMat = std(0x8a8a8a, .95, 0, { map: paper }), panel = std(0x2e2e2e, .75), trim = std(0x1e1e1e, .6);
+    add(new T.PlaneGeometry(9, 4.6), wallMat, 0, 1.55, ROOM_Z);
+    for (const s of [-1, 1]) {
+      add(new T.PlaneGeometry(4.6, 4.6), wallMat, s * 3.6, 1.55, ROOM_Z + 2.3).rotation.y = -s * Math.PI / 2;
+      add(new T.BoxGeometry(.02, .9, 4.6), panel, s * 3.59, -.3, ROOM_Z + 2.3);                  // lambri nas laterais
+      add(new T.BoxGeometry(.04, .04, 4.6), trim, s * 3.58, .16, ROOM_Z + 2.3);
+    }
+    add(new T.BoxGeometry(9, .9, .02), panel, 0, -.3, ROOM_Z + .01);                            // lambri do fundo
+    add(new T.BoxGeometry(9, .04, .04), trim, 0, .16, ROOM_Z + .02);                            // moldura do lambri
+    add(new T.BoxGeometry(9, .14, .03), trim, 0, -.68, ROOM_Z + .035);                          // rodapé
+    for (let i = -4; i <= 4; i++) add(new T.BoxGeometry(.012, .82, .006), trim, i, -.3, ROOM_Z + .023);   // juntas do lambri
+
+    // lousa grande de casos (à esquerda), com papéis presos, retratos falados, mapas e fios ligando os casos
+    const pins = [];
+    const board = tex(2048, 1188, (x, w, h) => {
+      x.fillStyle = "#232323"; x.fillRect(0, 0, w, h);
+      x.fillStyle = "rgba(255,255,255,.03)"; for (let i = 0; i < 70; i++) x.fillRect(rand(w), rand(h), 160 + rand(300), 30 + rand(50)); // marcas de apagador
+      const line = (pts, wd = 5, dash = null, col = "rgba(235,235,235,.85)") => {
+        x.save(); x.strokeStyle = col; x.lineWidth = wd; x.lineCap = x.lineJoin = "round"; if (dash) x.setLineDash(dash);
+        x.beginPath(); pts.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); x.stroke(); x.restore();
+      };
+      const arrow = (pts, dash = [18, 14]) => {
+        line(pts, 5, dash);
+        const [a, b] = pts[pts.length - 2], [c, d] = pts[pts.length - 1], an = Math.atan2(d - b, c - a);
+        line([[c - 30 * Math.cos(an - .45), d - 30 * Math.sin(an - .45)], [c, d], [c - 30 * Math.cos(an + .45), d - 30 * Math.sin(an + .45)]], 6);
+      };
+      const label = (s, px, py, size, rot = 0, opts = {}) => { x.save(); x.translate(px, py); x.rotate(rot); chalk(x, s, 0, 0, size, opts); x.restore(); };
+      // papel preso com tachinha; draw desenha dentro dele (origem no canto de cima à esquerda)
+      const note = (px, py, pw, ph, rot, draw, bg = "#e2e2e2") => {
+        const cx = px + pw / 2, cy = py + ph / 2;
+        x.save(); x.translate(cx, cy); x.rotate(rot);
+        x.fillStyle = "rgba(0,0,0,.55)"; x.fillRect(-pw / 2 + 9, -ph / 2 + 12, pw, ph);
+        x.fillStyle = bg; x.fillRect(-pw / 2, -ph / 2, pw, ph);
+        x.translate(-pw / 2, -ph / 2); x.fillStyle = x.strokeStyle = "#151515"; x.textAlign = "left"; draw(pw, ph); x.restore();
+        const p = [cx + (ph / 2 - 20) * Math.sin(rot), cy - (ph / 2 - 20) * Math.cos(rot)];
+        pins.push([p[0] / w, p[1] / h]); return p;
+      };
+      const typed = (s, px, py, size, bold = true) => { x.font = `${bold ? "bold " : ""}${size}px ${TYPE}`; x.fillText(s, px, py); };
+      // retrato falado: rosto a lápis, com chapéu/boné/gorro conforme o suspeito
+      const face = (cx, cy, s, v) => {
+        x.lineWidth = 4; x.lineCap = "round";
+        x.beginPath(); x.ellipse(cx, cy, s * .34, s * .44, 0, 0, Math.PI * 2); x.stroke();
+        for (const d of [-1, 1]) {
+          x.beginPath(); x.ellipse(cx + d * s * .36, cy, s * .05, s * .09, 0, 0, Math.PI * 2); x.stroke();      // orelhas
+          x.beginPath(); x.ellipse(cx + d * s * .13, cy - s * .05, s * .055, s * .028, 0, 0, Math.PI * 2); x.fill(); // olhos
+          x.fillRect(cx + d * s * .13 - s * .09, cy - s * .14 - (v === 1 ? d * 3 : 0), s * .18, 5);             // sobrancelhas
+        }
+        x.beginPath(); x.moveTo(cx, cy - s * .02); x.lineTo(cx - s * .05, cy + s * .12); x.lineTo(cx + s * .03, cy + s * .13); x.stroke();   // nariz
+        x.beginPath(); x.moveTo(cx - s * .11, cy + s * .25); x.lineTo(cx + s * .11, cy + s * .24); x.stroke();                            // boca
+        x.beginPath();
+        for (const d of [-1, 1]) { x.moveTo(cx + d * s * .14, cy + s * .4); x.lineTo(cx + d * s * .16, cy + s * .52); x.quadraticCurveTo(cx + d * s * .5, cy + s * .56, cx + d * s * .62, cy + s * .78); }
+        x.stroke();
+        if (v === 0) { x.fillRect(cx - s * .5, cy - s * .4, s, s * .08); x.fillRect(cx - s * .3, cy - s * .84, s * .6, s * .46); }        // cartola
+        if (v === 1) {                                                                                                                  // bigode e boné
+          x.beginPath(); x.moveTo(cx - s * .17, cy + s * .2); x.quadraticCurveTo(cx, cy + s * .1, cx + s * .17, cy + s * .2); x.lineTo(cx, cy + s * .17); x.closePath(); x.fill();
+          x.beginPath(); x.ellipse(cx, cy - s * .32, s * .36, s * .17, 0, Math.PI, 0); x.fill(); x.fillRect(cx - s * .05, cy - s * .35, s * .5, s * .06);
+        }
+        if (v === 2) {                                                                                                                  // barba e gorro
+          x.beginPath(); x.ellipse(cx, cy + s * .28, s * .3, s * .19, 0, 0, Math.PI); x.fill();
+          x.fillRect(cx - s * .37, cy - s * .48, s * .74, s * .17); x.beginPath(); x.ellipse(cx, cy - s * .48, s * .32, s * .12, 0, Math.PI, 0); x.fill();
+        }
+      };
+
+      chalk(x, "CASOS EM ABERTO", w / 2, 92, 88, { bold: true, align: "center" });
+      x.fillStyle = "#eee"; x.fillRect(w / 2 - 380, 112, 760, 7);
+
+      // caso 1: Whitechapel, 1888, com o mapa das vítimas e as rotas de fuga
+      chalk(x, "1888 - WHITECHAPEL", 60, 205, 62, { bold: true });
+      chalk(x, "JACK, O ESTRIPADOR", 76, 280, 60, { bold: true });
+      x.strokeStyle = "#e8e8e8"; x.lineWidth = 6; x.beginPath(); x.ellipse(366, 260, 330, 50, -.01, 0, Math.PI * 2); x.stroke();
+      chalk(x, "5 VÍTIMAS - NÃO RESOLVIDO", 76, 345, 40);
+      line([[60, 380], [930, 380], [930, 1150], [60, 1150], [60, 380]], 4, null, "rgba(235,235,235,.5)");   // borda do mapa
+      line([[60, 780], [930, 630]], 9); label("WHITECHAPEL RD.", 560, 676, 34, -.17, { bold: true });
+      line([[330, 380], [390, 1150]], 9); label("COMMERCIAL ST.", 352, 1010, 34, 1.49, { bold: true });
+      line([[560, 380], [590, 700]]); label("BRICK LANE", 600, 470, 30, 1.47);
+      line([[60, 520], [930, 480]]); label("HANBURY ST.", 640, 476, 30, -.05);
+      line([[440, 780], [470, 1150]]); line([[60, 940], [330, 930]]);
+      x.strokeStyle = "rgba(235,235,235,.6)"; x.lineWidth = 4; for (let i = 0; i < 2; i++) { x.beginPath(); for (let k = 0; k <= 40; k++) { const px = 60 + k * 21.75, py = 1100 + i * 26 + Math.sin(k * .8) * 8; k ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke(); }
+      label("RIO TÂMISA", 700, 1082, 30, 0, { bold: true });
+      const spots = [[760, 690, "1 - 31/08"], [500, 560, "2 - 08/09"], [470, 880, "3 - 30/09"], [170, 900, "4 - 30/09"], [250, 470, "5 - 09/11"]];
+      spots.forEach(([px, py, s2], i) => { chalk(x, "X", px, py, 62, { bold: true, align: "center" }); chalk(x, s2, px + 34, py - 2, 30, { bold: true }); chalk(x, RIPPER_SPOTS[i], px - 20, py + 38, 26); });
+      line([[470, 880], [170, 900]], 4, [6, 12]); label("MESMA NOITE!", 230, 860, 30, -.07, { bold: true });
+      arrow([[170, 920], [120, 1000], [96, 1070]]); label("FUGA?", 110, 1050, 34, 0, { bold: true });
+      arrow([[490, 900], [560, 990], [620, 1060]]); label("PARA AS DOCAS?", 590, 1020, 34, 0, { bold: true });
+      arrow([[790, 680], [870, 720], [920, 790]]);
+      x.strokeStyle = "rgba(235,235,235,.75)"; x.setLineDash([22, 16]); x.lineWidth = 5; x.beginPath(); x.ellipse(470, 690, 400, 290, -.1, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
+      label("ÁREA DE 1,5 KM", 640, 960, 32, -.1, { bold: true });
+
+      // suspeitos (retratos falados presos na lousa)
+      chalk(x, "SUSPEITOS", 1230, 205, 62, { bold: true, align: "center" });
+      const sus = [[1000, 250, -.05, 0, "O CIRURGIÃO"], [1250, 270, .06, 1, "O AÇOUGUEIRO"], [1110, 590, .03, 2, "O MARINHEIRO"]].map(([px, py, r, v, s2]) =>
+        note(px, py, 220, 290, r, (pw, ph) => { face(pw / 2, ph * .4, 150, v); typed(s2, 14, ph - 22, 25); }));
+      chalk(x, "QUEM?", 1210, 1000, 130, { bold: true, align: "center" });
+      x.strokeStyle = "#e8e8e8"; x.lineWidth = 6; x.beginPath(); x.ellipse(1210, 958, 230, 90, .03, 0, Math.PI * 2); x.stroke();
+      chalk(x, "ÁLIBI?", 1440, 560, 40, { bold: true });
+
+      // caso 2: o envenenamento, numa ficha datilografada
+      const poison = note(1500, 200, 510, 330, .025, (pw, ph) => {
+        typed("1946 - ENVENENAMENTO", 22, 62, 38); x.fillRect(22, 78, pw - 44, 4);
+        ["3 VÍTIMAS NA MESMA CASA", "ARSÊNICO NO CHÁ DAS 5", "SUSPEITA: A GOVERNANTA?", "SUMIU NA NOITE DO CRIME"].forEach((s2, i) => typed(s2, 22, 130 + i * 50, 28, false));
+      });
+      // caso 3: o assalto a banco, com o mapinha da fuga e a foto do ladrão
+      chalk(x, "1947 - ASSALTO A BANCO", 1490, 610, 52, { bold: true });
+      x.strokeStyle = "#e8e8e8"; x.lineWidth = 6; x.strokeRect(1520, 680, 170, 110); chalk(x, "BANCO", 1605, 748, 40, { bold: true, align: "center" });
+      line([[1490, 830], [2020, 830]], 8); line([[1740, 640], [1760, 1150]], 8);
+      arrow([[1690, 760], [1760, 760], [1770, 990], [1960, 1080]]); label("CARRO PRETO", 1790, 1000, 32, .25, { bold: true });
+      chalk(x, "DOCAS", 1880, 1140, 36, { bold: true });
+      arrow([[1700, 700], [1960, 650]]); label("TREM 23:40?", 1800, 640, 32, -.18, { bold: true });
+      chalk(x, "£ 20.000 LEVADOS", 1500, 1130, 40, { bold: true });
+      const thief = note(1800, 700, 190, 220, -.08, (pw, ph) => {
+        x.fillStyle = "#3a3a3a"; x.fillRect(12, 12, pw - 24, ph - 60);
+        const img = THIEF_RUN_FRAMES[0], s = (ph - 80) / img.height; x.imageSmoothingEnabled = false;
+        x.drawImage(img, pw / 2 - img.width * s / 2, 18, img.width * s, img.height * s);
+        x.fillStyle = "#151515"; typed("VISTO CORRENDO", 12, ph - 18, 21);
+      });
+
+      // fios ligando os casos (de tachinha em tachinha)
+      const thread = (a, b, s2) => {
+        line([a, b], 3, null, "rgba(250,250,250,.95)");
+        if (s2) label(s2, (a[0] + b[0]) / 2 + 12, (a[1] + b[1]) / 2 - 8, 32, 0, { bold: true });
+      };
+      thread([370, 222], sus[0], null);
+      thread(sus[1], thief, "MESMO HOMEM?");
+      thread(poison, thief, "LIGAÇÃO?");
+      thread(sus[2], [620, 1060], null);
+      pins.push([370 / w, 222 / h]);
+      x.fillStyle = "rgba(240,240,240,.85)"; x.fillRect(w - 260, h - 40, 140, 16);                  // pedaço de giz
+    });
+    const bx = -1.65, by = 1.06, bw = 2.5, bh = bw * 1188 / 2048;
+    add(new T.BoxGeometry(bw + .1, bh + .1, .05), std(0x2a2a2a, .6), bx, by, ROOM_Z + .025);        // moldura
+    add(new T.PlaneGeometry(bw, bh), std(0xffffff, .95, 0, { map: board, emissive: 0xffffff, emissiveMap: board, emissiveIntensity: .22 }), bx, by, ROOM_Z + .052);
+    add(new T.BoxGeometry(bw + .12, .03, .09), std(0x2a2a2a, .6), bx, by - bh / 2 - .06, ROOM_Z + .07);   // apoio do giz
+    add(new T.BoxGeometry(.13, .035, .05), std(0x5a5a5a, .9), bx + .8, by - bh / 2 - .03, ROOM_Z + .08);    // apagador
+    for (const [dx, r] of [[.5, .2], [.58, -.3]]) add(new T.CylinderGeometry(.006, .006, .06, 8), std(0xe8e8e8, .9), bx + dx, by - bh / 2 - .04, ROOM_Z + .08).rotation.set(0, r, Math.PI / 2);
+    const pinMat = std(0xd8d8d8, .3, .2);
+    for (const [u, v] of pins) {                                                                    // tachinhas de verdade (saltadas)
+      const px = bx - bw / 2 + u * bw, py = by + bh / 2 - v * bh;
+      add(new T.SphereGeometry(.012, 12, 8), pinMat, px, py, ROOM_Z + .068);
+      rod([px, py, ROOM_Z + .052], [px, py, ROOM_Z + .062], .004, pinMat);
+    }
+
+    // relógio de parede no centro: quase meia-noite (os ponteiros andam em drawNoir3D)
+    const clockTex = tex(512, 512, (x, w) => {
+      const c = w / 2;
+      x.fillStyle = "#e6e6e6"; circle(x, c, c, c - 2);
+      x.strokeStyle = "#222"; x.lineWidth = 6; x.beginPath(); x.arc(c, c, c - 20, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = "#1a1a1a";
+      for (let i = 0; i < 60; i++) {
+        const a = i / 60 * Math.PI * 2, big = i % 5 === 0;
+        x.save(); x.translate(c + Math.sin(a) * (c - 42), c - Math.cos(a) * (c - 42)); x.rotate(a); x.fillRect(big ? -5 : -2, big ? -14 : -6, big ? 10 : 4, big ? 28 : 12); x.restore();
+      }
+      x.font = "bold 62px Georgia, 'Times New Roman', serif"; x.textAlign = "center"; x.textBaseline = "middle";
+      for (let i = 1; i <= 12; i++) { const a = i / 12 * Math.PI * 2; x.fillText(String(i), c + Math.sin(a) * 160, c - Math.cos(a) * 160 + 3); }
+      x.font = "bold 24px Georgia, serif"; x.fillText("SCOTLAND YARD", c, c + 82);
+    });
+    const ck = [0, 1.62, ROOM_Z];
+    add(new T.CylinderGeometry(.25, .25, .06, 48), std(0x1e1e1e, .4, .4), ck[0], ck[1], ck[2] + .03).rotation.x = Math.PI / 2;
+    add(new T.TorusGeometry(.235, .012, 8, 48), std(0x9a9a9a, .3, .8), ck[0], ck[1], ck[2] + .062);
+    add(new T.CircleGeometry(.225, 48), std(0xffffff, .7, 0, { map: clockTex, emissive: 0xffffff, emissiveMap: clockTex, emissiveIntensity: .25 }), ck[0], ck[1], ck[2] + .061);
+    const hand = (len, wd, tail, dz, hex) => {
+      const geo = new T.BoxGeometry(wd, len + tail, .004); geo.translate(0, (len - tail) / 2, 0);
+      const m = add(geo, std(hex, .5), ck[0], ck[1], ck[2] + dz); m.castShadow = false; return m;
+    };
+    const clockHands = { h: hand(.12, .016, .025, .066, 0x111111), m: hand(.18, .01, .03, .07, 0x111111), s: hand(.19, .004, .05, .074, 0x3a3a3a) };
+    add(new T.CylinderGeometry(.012, .012, .016, 16), std(0x111111, .4, .5), ck[0], ck[1], ck[2] + .072).rotation.x = Math.PI / 2;
+
+    // janela à direita, em cima do armário: o céu de Londres de madrugada, com a persiana meio aberta
+    const sky = tex(512, 512, (x, w, h) => {
+      const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#1c1c1c"); gr.addColorStop(1, "#3a3a3a");
+      x.fillStyle = gr; x.fillRect(0, 0, w, h);
+      x.fillStyle = "rgba(255,255,255,.7)"; for (let i = 0; i < 70; i++) x.fillRect(rand(w), rand(h * .6), 2, 2);
+      for (const [r, a] of [[90, .05], [65, .08], [48, .12]]) { x.fillStyle = `rgba(255,255,255,${a})`; circle(x, w * .68, h * .26, r); }
+      x.fillStyle = "#ececec"; circle(x, w * .68, h * .26, 38);
+      x.fillStyle = "rgba(0,0,0,.1)"; for (const [dx, dy, r] of [[-12, -8, 9], [10, 6, 7], [-2, 16, 5]]) circle(x, w * .68 + dx, h * .26 + dy, r);
+      x.fillStyle = "#0e0e0e";
+      for (let i = 0, bx2 = 0; bx2 < w; i++) { const bw2 = 40 + rand(70), bh2 = 70 + rand(90); x.fillRect(bx2, h - bh2, bw2, bh2); bx2 += bw2; }   // telhados
+      x.fillRect(w * .2, h * .3, 46, h * .7); x.fillRect(w * .2 + 6, h * .22, 34, 20);                                                          // Big Ben
+      x.beginPath(); x.moveTo(w * .2 + 2, h * .22); x.lineTo(w * .2 + 23, h * .1); x.lineTo(w * .2 + 44, h * .22); x.fill();
+      x.fillStyle = "#cfcfcf"; circle(x, w * .2 + 23, h * .34, 14); x.fillStyle = "#0e0e0e"; x.fillRect(w * .2 + 22, h * .34 - 10, 2, 10); x.fillRect(w * .2 + 23, h * .34 - 1, 8, 2);
+      x.fillStyle = "rgba(255,255,255,.55)"; for (let i = 0; i < 26; i++) x.fillRect(rand(w), h - 20 - rand(120), 4, 5);                        // janelas acesas
+    });
+    const winX = 1.75, winY = 1.3, winW = 1.05, winH = .82;
+    add(new T.PlaneGeometry(winW, winH), keep(new T.MeshBasicMaterial({ map: sky, color: 0xbdbdbd })), winX, winY, ROOM_Z + .005);
+    const frameMat = std(0x2e2e2e, .6);
+    for (const [w, h, x, y] of [[winW + .1, .06, 0, winH / 2], [winW + .1, .08, 0, -winH / 2], [.06, winH, -winW / 2, 0], [.06, winH, winW / 2, 0], [.03, winH, 0, 0], [winW, .03, 0, .05]])
+      add(new T.BoxGeometry(w, h, .08), frameMat, winX + x, winY + y, ROOM_Z + .04);
+    add(new T.BoxGeometry(winW + .3, .04, .16), frameMat, winX, winY - winH / 2 - .05, ROOM_Z + .08);                  // peitoril
+    const slatMat = std(0x9a9a9a, .7);
+    for (let i = 0; i < 10; i++) add(new T.BoxGeometry(winW, .035, .004), slatMat, winX, winY + winH / 2 - .04 - i * .045, ROOM_Z + .1).rotation.x = -.9; // persiana meio aberta
+    for (const s of [-1, 1]) rod([winX + s * winW * .3, winY + winH / 2, ROOM_Z + .1], [winX + s * winW * .3, winY + winH / 2 - .45, ROOM_Z + .1], .002, slatMat);   // cordinhas
+
+    // arquivo de aço embaixo da janela: gavetas saltadas com puxador e etiqueta, uma aberta com as pastas;
+    // em cima, pastas empilhadas, uma garrafa de uísque e o copo
+    const cabG = new T.Group(); cabG.position.set(1.75, -.75, ROOM_Z + .4); cabG.rotation.y = -.1; scene.add(cabG);
+    const CW = .52, CH = 1.32, CD = .62, steel = std(0x4a4a4a, .45, .55), steelHi = std(0x6e6e6e, .4, .55), chrome = std(0xc8c8c8, .25, .9);
+    add(new T.BoxGeometry(CW, CH, CD), std(0x2a2a2a, .5, .5), 0, CH / 2, 0, cabG);
+    for (const s of [-1, 1]) add(new T.BoxGeometry(.012, CH, CD), steel, s * (CW / 2 - .006), CH / 2, 0, cabG);       // laterais
+    add(new T.BoxGeometry(CW + .01, .02, CD + .01), steel, 0, CH - .01, 0, cabG);                                       // tampo
+    add(new T.BoxGeometry(CW, .06, .02), std(0x1a1a1a, .7), 0, .03, CD / 2 - .02, cabG);                                // rodapé
+    const labelTex = ["A - F", "G - L", "M - R", "S - Z"].map(s2 => tex(128, 64, (x, w, h) => {
+      x.fillStyle = "#e4e4e4"; x.fillRect(0, 0, w, h); x.fillStyle = "#111"; x.font = "bold 34px 'Courier New', monospace"; x.textAlign = "center"; x.fillText(s2, w / 2, 44);
+    }));
+    const folderMats = [std(0xb4b4b4, .9), std(0x8e8e8e, .9), std(0xcfcfcf, .9)];
+    for (let i = 0; i < 4; i++) {
+      const y = .08 + i * .305 + .15, open = i === 2 ? .22 : 0, dr = new T.Group(); dr.position.set(0, y, CD / 2 + open); cabG.add(dr);
+      add(new T.BoxGeometry(CW - .03, .285, .024), steelHi, 0, 0, .012, dr);                                          // frente da gaveta
+      add(new T.BoxGeometry(CW - .1, .2, .006), steel, 0, -.01, .027, dr);                                            // painel em relevo
+      add(new T.BoxGeometry(.14, .02, .014), chrome, 0, .02, .045, dr);                                               // puxador
+      for (const s of [-1, 1]) add(new T.BoxGeometry(.014, .02, .02), chrome, s * .063, .02, .034, dr);
+      add(new T.BoxGeometry(.1, .055, .006), chrome, 0, .08, .029, dr);                                               // porta-etiqueta
+      add(new T.PlaneGeometry(.086, .042), std(0xffffff, .8, 0, { map: labelTex[i] }), 0, .08, .0325, dr);
+      if (open) {                                                                                                     // gaveta aberta, com as pastas
+        add(new T.PlaneGeometry(CW - .04, .28), std(0x050505, 1), 0, y, CD / 2 + .002, cabG);
+        for (const s of [-1, 1]) add(new T.BoxGeometry(.01, .22, open + .02), steel, s * (CW / 2 - .03), -.03, -open / 2, dr);
+        add(new T.BoxGeometry(CW - .06, .01, open + .02), steel, 0, -.14, -open / 2, dr);
+        for (let k = 0; k < 9; k++) {
+          const f = add(new T.BoxGeometry(CW - .1, .2 + (k % 3) * .015, .004), folderMats[k % 3], (k % 2) * .01 - .005, -.02 + (k % 3) * .008, -.02 - k * .022, dr);
+          f.rotation.x = -.18 + (k % 4) * .06;
+          add(new T.BoxGeometry(.07, .025, .004), folderMats[(k + 1) % 3], -.12 + (k * .07) % .24, .1 + (k % 3) * .015, -.02 - k * .022, dr).rotation.x = f.rotation.x;   // abas
+        }
+      }
+    }
+    for (let k = 0; k < 4; k++) add(new T.BoxGeometry(.34, .022, .26), folderMats[k % 3], -.06 + (k % 2) * .02, CH + .011 + k * .022, .04 - (k % 3) * .015, cabG).rotation.y = (k % 3 - 1) * .08;
+    const glassMat = std(0x3a3a3a, .08, .3);
+    lathe([[0, 0], [.042, 0], [.044, .006], [.044, .17], [.038, .2], [.015, .23], [.013, .28], [.016, .285], [0, .29]], glassMat, .14, CH, -.06, cabG);   // garrafa
+    const whiskyTex = tex(256, 128, (x, w, h) => {
+      x.fillStyle = "#d8d8d8"; x.fillRect(0, 0, w, h); x.fillStyle = "#111"; x.textAlign = "center";
+      x.font = "bold 40px Georgia, serif"; x.fillText("WHISKY", w / 2, 60); x.font = "bold 20px Georgia, serif"; x.fillText("12 ANOS", w / 2, 96);
+    });
+    add(new T.CylinderGeometry(.0445, .0445, .07, 24, 1, true, -.9, 1.8), std(0xffffff, .8, 0, { map: whiskyTex }), .14, CH + .09, -.06, cabG);
+    lathe([[0, 0], [.03, 0], [.033, .075], [.03, .075], [.027, .006], [0, .006]], std(0xd0d0d0, .1, .2, { side: T.DoubleSide }), .16, CH, .13, cabG);  // copo
+    add(new T.CircleGeometry(.028, 20), std(0x6a6a6a, .1), .16, CH + .025, .13, cabG).rotation.x = -Math.PI / 2;
+    // cesto de lixo ao lado, com papéis amassados
+    const bin = new T.Group(); bin.position.set(1.2, -.75, ROOM_Z + .75); scene.add(bin);
+    lathe([[.11, 0], [.14, .32], [.135, .32], [.105, .006], [0, .006]], std(0x3a3a3a, .6, .3, { side: T.DoubleSide }), 0, 0, 0, bin);
+    for (const [dx, dy, dz, r] of [[0, .3, 0, .05], [.05, .28, .04, .04], [-.05, .29, -.03, .045], [.22, .04, .12, .04], [-.15, .035, .2, .035]])
+      add(new T.IcosahedronGeometry(r, 0), std(0xd8d8d8, .9, 0, { flatShading: true }), dx, dy, dz, bin);
+
+    // tripé de luz no chão, à esquerda, iluminando a lousa (com o cone de luz no ar)
+    const tri = new T.Group(); tri.position.set(-2.2, -.75, ROOM_Z + 1.3); scene.add(tri);
+    const triMat = std(0x262626, .45, .6), headY = 1.22;
+    for (let i = 0; i < 3; i++) {
+      const a = i / 3 * Math.PI * 2 + .4, f = [Math.cos(a) * .34, 0, Math.sin(a) * .34];
+      rod(f, [0, .6, 0], .011, triMat, tri);
+      rod([f[0] * .45, .33, f[2] * .45], [0, .45, 0], .006, triMat, tri);                                       // travessas
+      add(new T.SphereGeometry(.016, 8, 6), std(0x111111, .9), f[0], .008, f[2], tri);                          // pezinhos de borracha
+    }
+    rod([0, .55, 0], [0, headY - .06, 0], .014, triMat, tri);
+    add(new T.CylinderGeometry(.022, .022, .05, 12), std(0x444444, .4, .6), 0, .9, 0, tri);                   // trava da haste
+    const target = new T.Vector3(bx + .05, by - .02, ROOM_Z);
+    const head = new T.Group(); head.position.set(0, headY, 0); tri.add(head);
+    tri.updateMatrixWorld(true); head.lookAt(target);
+    const can = std(0x303030, .4, .5);
+    add(new T.CylinderGeometry(.11, .095, .24, 32, 1, true), std(0x303030, .4, .5, { side: T.DoubleSide }), 0, 0, 0, head).rotation.x = Math.PI / 2;
+    add(new T.CircleGeometry(.095, 32), can, 0, 0, -.12, head).rotation.y = Math.PI;                          // fundo
+    for (let i = 0; i < 6; i++) add(new T.BoxGeometry(.2, .006, .03), can, 0, -.06 + i * .024, -.13, head);  // aletas
+    add(new T.CircleGeometry(.105, 32), keep(new T.MeshBasicMaterial({ color: 0xffffff, fog: false })), 0, 0, .1, head);   // lente acesa
+    for (const [x, y, rx, ry] of [[0, .12, -.6, 0], [0, -.12, .6, 0], [.12, 0, 0, .6], [-.12, 0, 0, -.6]]) {             // abas de luz
+      const d = add(new T.BoxGeometry(Math.abs(x) ? .004 : .22, Math.abs(y) ? .004 : .22, .12), can, x, y, .17, head);
+      d.rotation.set(rx, ry, 0);
+    }
+    for (const s of [-1, 1]) add(new T.BoxGeometry(.012, .03, .14), triMat, s * .12, -.01, 0, head);          // garfo
+    const fade = tex(4, 128, (x, w, h) => { const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#fff"); gr.addColorStop(1, "#000"); x.fillStyle = gr; x.fillRect(0, 0, w, h); });
+    const cone = add(new T.ConeGeometry(.5, 1.3, 32, 1, true), keep(new T.MeshBasicMaterial({ map: fade, color: 0xffffff, transparent: true, opacity: .045, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending, fog: false })), 0, 0, .1 + .65, head);
+    cone.rotation.x = -Math.PI / 2; cone.castShadow = cone.receiveShadow = false;
+    const boardLight = new T.SpotLight(0xffffff, 26, 0, .55, .7, 1.3);
+    head.updateMatrixWorld(true); head.getWorldPosition(boardLight.position);
+    boardLight.target.position.copy(target); scene.add(boardLight, boardLight.target);
+    rod([0, .56, 0], [.05, .02, .05], .004, std(0x111111, .8), tri);                                          // fio descendo
+    add(new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(-2.57, -.746, ROOM_Z + 1), new T.Vector3(-2.9, -.746, ROOM_Z + 1.3), new T.Vector3(-3.3, -.746, ROOM_Z + 1.1), new T.Vector3(-3.58, -.746, ROOM_Z + 1.2)]), 30, .004, 6), std(0x111111, .8), 0, 0, 0);
+
+    // ----- a mesa -----
+    const deskTex = wood.clone(); deskTex.repeat.set(2, 1); deskTex.needsUpdate = true; keep(deskTex);
+    add(new T.BoxGeometry(1.8, .05, .95), std(0x6a6a6a, .55, 0, { map: deskTex }), 0, -.025, 0);
+    add(new T.BoxGeometry(1.84, .02, .99), std(0x3a3a3a, .5), 0, -.06, 0);                                  // borda do tampo
+    add(new T.BoxGeometry(1.76, .7, .04), std(0x3a3a3a, .7), 0, -.42, .44);
+    for (const x of [-.5, .5]) add(new T.BoxGeometry(.12, .02, .02), std(0xbdbdbd, .3, .8), x, -.18, .47);   // puxadores das gavetas
+    add(new T.BoxGeometry(1.4, .002, .6), std(0x2a2a2a, .9), 0, .001, -.05);                                  // forro de couro da mesa
+
+    // luminária de banqueiro: base de latão, haste, cúpula comprida de vidro escuro (por dentro clara),
+    // a lâmpada tubular acesa embaixo e a correntinha de puxar
+    const brass = std(0xb0b0b0, .3, .85);
+    const lamp = new T.Group(); lamp.position.set(-.52, 0, -.36); lamp.rotation.y = .3; scene.add(lamp);
+    lathe([[0, 0], [.09, 0], [.092, .007], [.084, .014], [.055, .022], [.034, .03], [0, .032]], brass, 0, 0, 0, lamp);
+    add(new T.CylinderGeometry(.01, .01, .17, 12), brass, 0, .115, -.03, lamp);                                  // haste
+    add(new T.CylinderGeometry(.015, .015, .02, 12), brass, 0, .05, -.03, lamp);
+    add(new T.SphereGeometry(.014, 12, 8), brass, 0, .2, -.03, lamp);
+    add(new T.TubeGeometry(new T.QuadraticBezierCurve3(new T.Vector3(0, .2, -.03), new T.Vector3(0, .3, -.03), new T.Vector3(0, .3, .045)), 16, .007, 8), brass, 0, 0, 0, lamp);   // braço curvo até a cúpula
+    const shadeProf = [[0, -.15], [.032, -.148], [.052, -.138], [.064, -.118], [.068, -.09], [.068, .09], [.064, .118], [.052, .138], [.032, .148], [0, .15]].map(([r, h]) => new T.Vector2(r, h));
+    const shadeOut = add(new T.LatheGeometry(shadeProf, 32, 0, Math.PI), std(0x2e2e2e, .18, .1), 0, .27, .055, lamp);
+    const shadeIn = add(new T.LatheGeometry(shadeProf, 32, 0, Math.PI), std(0xd8d8d8, .6, 0, { side: T.BackSide, emissive: 0xffffff, emissiveIntensity: .35 }), 0, .27, .055, lamp);
+    for (const m of [shadeOut, shadeIn]) { m.rotation.set(0, 0, Math.PI / 2); m.scale.set(.9, 1, 1); }
+    for (const s of [-1, 1]) add(new T.BoxGeometry(.27, .005, .005), brass, 0, .27, .055 + s * .067, lamp);     // aros de latão
+    add(new T.CylinderGeometry(.011, .011, .2, 12), keep(new T.MeshBasicMaterial({ color: 0xffffff })), 0, .262, .055, lamp);  // lâmpada
+    lamp.children[lamp.children.length - 1].rotation.z = Math.PI / 2; lamp.children[lamp.children.length - 1].castShadow = false;
+    rod([.06, .27, .11], [.06, .22, .115], .0015, brass, lamp);                                                   // correntinha
+    add(new T.SphereGeometry(.005, 8, 6), brass, .06, .218, .115, lamp);
+    lamp.updateMatrixWorld(true);
+    const bulbAt = lamp.localToWorld(new T.Vector3(0, .245, .07));
+    const spot = new T.SpotLight(0xffffff, 10, 3, 1.1, .7, 1.5);
+    spot.position.copy(bulbAt); spot.target.position.set(0, 0, .12); spot.castShadow = true;
+    spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -.0005;
+    scene.add(spot, spot.target);
+    scene.add(new T.HemisphereLight(0xffffff, 0x222222, .55));
+    const moon = new T.DirectionalLight(0xffffff, .5); moon.position.set(winX + .5, 2.6, ROOM_Z - 1.5); moon.target.position.set(0, 0, 0); scene.add(moon, moon.target);
+    const moonIn = new T.PointLight(0xffffff, 2, 0, 1.6); moonIn.position.set(winX - .2, winY - .1, ROOM_Z + .7); scene.add(moonIn);   // luar entrando pela janela
+    const fill = new T.PointLight(0xffffff, 1.4, 0, 2); fill.position.set(0, .9, 1.1); scene.add(fill);   // luz fraca que vem de onde a gente está
+
+    // copo de café para viagem, tampado, com "café expresso extra forte" onde ficaria a marca
+    // (a fumaça sai pelo furinho da tampa e é animada em drawNoir3D)
+    const cupTex = tex(1024, 512, (x, w, h) => {
+      x.fillStyle = "#e6e6e6"; x.fillRect(0, 0, w, h);
+      x.fillStyle = "rgba(0,0,0,.06)"; for (let i = 0; i < 900; i++) x.fillRect(rand(w), rand(h), 3, 2);       // fibras
+      x.fillStyle = "#151515"; x.textAlign = "center";
+      x.font = "italic bold 118px 'Segoe Script', 'Brush Script MT', cursive"; x.fillText("Café", w / 2, 200);
+      x.font = "bold 58px 'Segoe UI', Arial, Helvetica, sans-serif"; x.fillText("EXPRESSO", w / 2, 290);
+      x.fillRect(w / 2 - 150, 312, 300, 6);
+      x.font = "900 66px 'Segoe UI', Arial, Helvetica, sans-serif"; x.fillText("EXTRA FORTE", w / 2, 390);
+    });
+    const cupG = new T.Group(); cupG.position.set(.72, 0, .05); scene.add(cupG);
+    cupG.rotation.y = Math.atan2(.02 - .72, 1.22 - .05);                                                         // texto virado para nós
+    add(new T.CylinderGeometry(.042, .03, .13, 48, 1, true), std(0xffffff, .75, 0, { map: cupTex }), 0, .065, 0, cupG).rotation.y = Math.PI;
+    add(new T.CircleGeometry(.03, 32), std(0xd8d8d8, .8), 0, .001, 0, cupG).rotation.x = Math.PI / 2;
+    const lidMat = std(0xe8e8e8, .45, 0, { side: T.DoubleSide });
+    lathe([[0, .145], [.024, .145], [.03, .143], [.034, .139], [.037, .138], [.044, .136], [.046, .131], [.045, .125], [.042, .125]], lidMat, 0, 0, 0, cupG);
+    const hole = add(new T.CircleGeometry(.0055, 16), std(0x050505, 1), 0, .1458, .022, cupG);                    // furinho da tampa
+    hole.rotation.x = -Math.PI / 2; hole.scale.set(1.7, 1, 1);
+    cupG.updateMatrixWorld(true);
+    const steamAt = cupG.localToWorld(new T.Vector3(0, .15, .022));
+
+    // cinzeiro de vidro grosso com três apoios, o cigarro aceso num deles, bitucas e cinza
+    const ashG = new T.Group(); ashG.position.set(-.33, 0, -.05); scene.add(ashG);
+    const GAP = .38, notch = 2 * Math.PI / 3 - GAP / 2;                                                           // ângulo do apoio usado
+    ashG.rotation.y = Math.PI / 3 - notch;                                                                         // ele fica para a direita, de frente
+    const glass = std(0xbcbcbc, .1, .15, { side: T.DoubleSide });
+    lathe([[0, .006], [.058, .009], [.07, .022], [.082, .022], [.084, .004], [.078, 0], [0, 0]], glass, 0, 0, 0, ashG);
+    for (let k = 0; k < 3; k++)
+      add(new T.LatheGeometry([[.07, .021], [.083, .021], [.083, .032], [.077, .034], [.07, .032], [.07, .021]].map(([r, h]) => new T.Vector2(r, h)), 10, k * 2 * Math.PI / 3, 2 * Math.PI / 3 - GAP), glass, 0, 0, 0, ashG);
+    add(new T.CircleGeometry(.058, 32), std(0x4a4a4a, 1), 0, .0095, 0, ashG).rotation.x = -Math.PI / 2;            // cinzas
+    for (const [dx, dz, r] of [[-.02, .015, .014], [.015, -.02, .011], [.028, .012, .009]])
+      add(new T.SphereGeometry(r, 10, 6), std(0x5e5e5e, 1), dx, .009, dz, ashG).scale.set(1, .35, 1);
+    const butt = (dx, dz, ry, len, bent) => {                                                                     // bituca amassada
+      const b = new T.Group(); b.position.set(dx, .015, dz); b.rotation.set(0, ry, 0); ashG.add(b);
+      add(new T.CylinderGeometry(.0042, .0042, .02, 10), std(0xb8b8b8, .9), .01, 0, 0, b).rotation.z = Math.PI / 2;
+      const p = new T.Group(); p.rotation.z = bent; b.add(p);
+      add(new T.CylinderGeometry(.004, .0045, len, 10), std(0xe8e8e8, .9), -len / 2, 0, 0, p).rotation.z = Math.PI / 2;
+      add(new T.CylinderGeometry(.0041, .0041, .003, 10), std(0x2a2a2a, 1), -len, 0, 0, p).rotation.z = Math.PI / 2;
+    };
+    butt(-.03, .02, .5, .012, .5); butt(.02, -.028, 2.2, .008, -.4); butt(.0, .03, -1.2, .016, .2); butt(-.025, -.02, 3.6, .01, .8);
+    const cig = new T.Group(); cig.position.set(Math.sin(notch) * .088, .034, Math.cos(notch) * .088); cig.rotation.set(0, notch + Math.PI / 2, -.12); ashG.add(cig);
+    add(new T.CylinderGeometry(.0045, .0045, .022, 12), std(0xa8a8a8, .8), -.008, 0, 0, cig).rotation.z = Math.PI / 2;   // filtro
+    add(new T.CylinderGeometry(.0046, .0046, .002, 12), std(0xe0e0e0, .6), .0035, 0, 0, cig).rotation.z = Math.PI / 2;   // anel do filtro
+    add(new T.CylinderGeometry(.0045, .0045, .036, 12), std(0xf4f4f4, .8), .0225, 0, 0, cig).rotation.z = Math.PI / 2;   // papel
+    add(new T.CylinderGeometry(.0043, .0045, .012, 12), std(0x7a7a7a, 1), .0465, 0, 0, cig).rotation.z = Math.PI / 2;    // cinza na ponta
+    const ember = add(new T.SphereGeometry(.0046, 10, 8), keep(new T.MeshBasicMaterial({ color: 0xffffff })), .0525, 0, 0, cig);
+    ember.scale.set(.5, 1, 1);
+    ashG.updateMatrixWorld(true);
+    const emberAt = cig.localToWorld(new T.Vector3(.055, .004, 0));
+    const emberLight = new T.PointLight(0xffffff, .2, .3, 2); emberLight.position.copy(emberAt); scene.add(emberLight);
+    for (let i = 0; i < 6; i++) add(new T.CircleGeometry(.003 + Math.random() * .004, 6), std(0x3a3a3a, 1), -.33 + .09 + Math.random() * .08, .0025, -.05 + .02 + Math.random() * .07).rotation.x = -Math.PI / 2;   // cinza caída
+
+    // maço de cigarros com a tampa aberta (cigarros aparecendo, um puxado para fora) e um solto do lado
+    const packTex = tex(192, 288, (x, w, h) => {
+      x.fillStyle = "#ececec"; x.fillRect(0, 0, w, h); x.fillStyle = "#1a1a1a"; x.fillRect(0, 110, w, 90);
+      x.strokeStyle = "#1a1a1a"; x.lineWidth = 6; x.strokeRect(10, 10, w - 20, h - 20);
+      x.textAlign = "center"; x.fillStyle = "#fff"; x.font = "bold 36px Georgia, serif"; x.fillText("LONDRES", w / 2, 168);
+      x.fillStyle = "#1a1a1a"; x.font = "bold 24px Georgia, serif"; x.fillText("FILTRO", w / 2, 80); x.font = "bold 20px Georgia, serif"; x.fillText("20 CIGARROS", w / 2, 246);
+    });
+    const packG = new T.Group(); packG.position.set(-.57, 0, .03); packG.rotation.y = .4; scene.add(packG);
+    const packM = std(0xe0e0e0, .7);
+    add(new T.BoxGeometry(.056, .017, .07), [packM, packM, texMat(packTex), packM, packM, packM], 0, .0085, .008, packG);
+    const lidG = new T.Group(); lidG.position.set(0, .017, -.027); lidG.rotation.x = 1.75; packG.add(lidG);
+    add(new T.BoxGeometry(.056, .017, .016), packM, 0, -.0085, -.008, lidG);
+    add(new T.BoxGeometry(.052, .015, .002), std(0xcfcfcf, .3, .8), 0, .0085, -.026, packG);                      // papel-alumínio
+    for (const [dx, out] of [[-.017, .004], [-.006, .018], [.006, .004], [.017, .002]]) {
+      add(new T.CylinderGeometry(.0042, .0042, .02, 10), std(0xa8a8a8, .8), dx, .0085, -.027 - out + .008, packG).rotation.x = Math.PI / 2;
+    }
+    add(new T.CylinderGeometry(.0045, .0045, .07, 12), std(0xf4f4f4, .8), -.49, .0045, .12).rotation.set(0, .9, Math.PI / 2);   // cigarro solto
+    add(new T.CylinderGeometry(.0046, .0046, .02, 12), std(0xa8a8a8, .8), -.49 - Math.cos(.9) * .045, .0046, .12 + Math.sin(.9) * .045).rotation.set(0, .9, Math.PI / 2);
+    // caixa de fósforos com a gaveta meio aberta e dois palitos queimados
+    const matchTex = tex(160, 112, (x, w, h) => {
+      x.fillStyle = "#d8d8d8"; x.fillRect(0, 0, w, h); x.fillStyle = "#1a1a1a"; x.fillRect(0, 0, w, 14); x.fillRect(0, h - 14, w, 14);
+      x.font = "bold 26px Georgia, serif"; x.textAlign = "center"; x.fillText("FÓSFOROS", w / 2, 66);
+    });
+    const mbG = new T.Group(); mbG.position.set(-.69, 0, .11); mbG.rotation.y = -.35; scene.add(mbG);
+    const matchM = std(0x5a5a5a);
+    add(new T.BoxGeometry(.05, .014, .036), [matchM, matchM, texMat(matchTex), matchM, matchM, matchM], 0, .007, 0, mbG);
+    const tray = std(0xc8c8c8, .9);
+    add(new T.BoxGeometry(.046, .002, .032), tray, .024, .002, 0, mbG);
+    for (const s of [-1, 1]) add(new T.BoxGeometry(.046, .01, .002), tray, .024, .006, s * .015, mbG);
+    add(new T.BoxGeometry(.002, .01, .032), tray, .046, .006, 0, mbG);
+    for (let i = 0; i < 6; i++) {
+      add(new T.BoxGeometry(.04, .0022, .0022), std(0xe0e0e0, .9), .02, .0045 + (i % 2) * .002, -.011 + i * .0044, mbG);
+      add(new T.BoxGeometry(.005, .0035, .0035), std(0x2a2a2a, .8), .041, .0048 + (i % 2) * .002, -.011 + i * .0044, mbG);
+    }
+    for (const [x0, z0, r] of [[-.62, .17, .6], [-.6, .19, 2.1]]) {
+      add(new T.BoxGeometry(.04, .002, .002), std(0x222222, .9), x0, .0035, z0).rotation.y = r;
+      add(new T.SphereGeometry(.0025, 6, 4), std(0x0a0a0a, 1), x0 + Math.cos(r) * .02, .0035, z0 - Math.sin(r) * .02);
+    }
+
+    // relatório e, em cima dele, a Glock no coldre de polímero, ainda num pedaço do cinto: tirada da
+    // cintura e largada na mesa. A arma e o coldre são feitos "em pé" em milímetros (cano para +x, alto
+    // para +y, espessura em z) e depois deitados de lado
+    const reportTex = tex(512, 360, (x, w, h) => {
+      x.fillStyle = "#ececec"; x.fillRect(0, 0, w, h); x.fillStyle = "#111"; x.textAlign = "left";
+      x.font = "bold 34px 'Courier New', monospace"; x.fillText("RELATÓRIO DE OCORRÊNCIA", 24, 50);
+      x.fillRect(24, 64, w - 48, 3);
+      x.fillStyle = "#9a9a9a"; for (let i = 0; i < 9; i++) x.fillRect(24, 100 + i * 28, w - 60 - rand(160), 6);
+    });
+    add(new T.PlaneGeometry(.3, .21), std(0xffffff, .9, 0, { map: reportTex }), -.4, .0035, .2).rotation.set(-Math.PI / 2, 0, .12);
+    const mmShape = (pts, holes = []) => {
+      const s = new T.Shape(pts.map(([a, b]) => new T.Vector2(a / 1000, b / 1000)));
+      for (const hp of holes) s.holes.push(new T.Path(hp.map(([a, b]) => new T.Vector2(a / 1000, b / 1000))));
+      return s;
+    };
+    const slab = (shape, depth, mat, parent, bevel = .0012) =>
+      add(new T.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, curveSegments: 6 }), mat, 0, 0, -depth / 2, parent);
+    // a face de cima de uma peça extrudada usa as coordenadas (em metros) como UV: a textura é esticada sobre a área (x0..x1, y0..y1)
+    const fitTex = (t, x0, x1, y0, y1) => { t.repeat.set(1 / (x1 - x0), 1 / (y1 - y0)); t.offset.set(-x0 / (x1 - x0), -y0 / (y1 - y0)); return t; };
+    const gripTex = fitTex(tex(512, 280, (x, w, h) => {
+      x.fillStyle = "#262626"; x.fillRect(0, 0, w, h);
+      x.fillStyle = "#4e4e4e"; for (let py = 80; py < h; py += 7) for (let px = (py / 7 % 2) * 3.5; px < 215; px += 7) x.fillRect(px, py, 3, 3);   // textura da empunhadura
+    }), -.03, .175, 0, .11);
+    const slideTex = fitTex(tex(512, 96, (x, w, h) => {
+      x.fillStyle = "#555"; x.fillRect(0, 0, w, h);
+      x.fillStyle = "#1a1a1a"; for (let i = 0; i < 9; i++) x.fillRect(16 + i * 11, 10, 5, h - 18);                   // serrilha de trás
+    }), 0, .186, .107, .139);
+    const slideM = std(0x505050, .3, .7), poly = std(0x1e1e1e, .6), holsterM = std(0x333333, .8);
+    const gunYaw = new T.Group(); gunYaw.position.set(-.44, .0035, .21); gunYaw.rotation.y = .18; scene.add(gunYaw);
+    // pedaço do cinto (fita de náilon) que passa por baixo do coldre, com a fivela
+    const beltPath = new T.CatmullRomCurve3([[.17, .002, .16], [.06, .002, .15], [.02, .003, .07], [.02, .005, -.02], [.03, .003, -.12], [.09, .002, -.17], [.16, .002, -.14]].map(p => new T.Vector3(...p)));
+    add(new T.ExtrudeGeometry(new T.Shape([[-.0018, -.02], [.0018, -.02], [.0018, .02], [-.0018, .02]].map(([a, b]) => new T.Vector2(a, b))), { steps: 80, bevelEnabled: false, extrudePath: beltPath }), std(0x2a2a2a, .95), 0, 0, 0, gunYaw);
+    const buckle = add(new T.BoxGeometry(.03, .007, .05), chrome, .18, .004, .162, gunYaw); buckle.rotation.y = .05;
+    add(new T.BoxGeometry(.018, .008, .036), std(0x111111, .8), .18, .005, .162, gunYaw).rotation.y = .05;
+    const rig = new T.Group(); rig.position.set(0, .027, 0); rig.rotation.set(-Math.PI / 2, 0, 0); rig.scale.setScalar(1.02); gunYaw.add(rig);
+    const tilt = new T.Group(); tilt.rotation.x = .06; rig.add(tilt);
+    const gun = new T.Group(); gun.position.set(-.1, -.075, 0); tilt.add(gun);
+    slab(mmShape([[0, 107], [186, 107], [186, 132], [180, 139], [6, 139], [0, 134]]), .023, [texMat(slideTex, { roughness: .3, metalness: .6 }), slideM], gun, .0015);   // ferrolho
+    slab(mmShape([[4, 107], [172, 107], [172, 96], [122, 96], [118, 86], [114, 77], [106, 72], [74, 72], [62, 78], [56, 76], [26, 8], [-26, 8], [0, 96], [-8, 102], [-6, 107]],
+      [[[70, 92], [110, 92], [110, 84], [106, 79], [78, 79], [70, 84]]]), .026, [texMat(gripTex, { roughness: .7 }), poly], gun, .0025);                              // armação
+    add(new T.BoxGeometry(.058, .009, .03), poly, -.0005, .0045, 0, gun);                                                                                    // base do carregador
+    add(new T.BoxGeometry(.008, .006, .016), slideM, .009, .1415, 0, gun);                                                                                   // alça de mira
+    add(new T.BoxGeometry(.004, .005, .006), slideM, .179, .1415, 0, gun);
+    add(new T.CylinderGeometry(.0045, .0045, .004, 12), std(0x050505, 1), .1865, .123, 0, gun).rotation.z = Math.PI / 2;                                  // boca do cano
+    add(new T.BoxGeometry(.004, .016, .006), std(0x111111, .5), .088, .086, 0, gun).rotation.z = .25;                                                     // gatilho
+    add(new T.BoxGeometry(.014, .005, .0295), slideM, .036, .102, 0, gun);                                                                                // trava do ferrolho
+    // coldre: casca rígida em volta do ferrolho e do guarda-mato, com frisos e a trava em arco sobre o ferrolho
+    const hol = new T.Group(); gun.add(hol);
+    const hs = new T.Shape(), M = v => v / 1000;
+    hs.moveTo(M(40), M(149)); hs.lineTo(M(190), M(149)); hs.quadraticCurveTo(M(201), M(149), M(201), M(138)); hs.lineTo(M(201), M(104));
+    hs.quadraticCurveTo(M(201), M(93), M(190), M(92)); hs.lineTo(M(134), M(91)); hs.quadraticCurveTo(M(127), M(91), M(125), M(83));
+    hs.quadraticCurveTo(M(119), M(63), M(97), M(63)); hs.quadraticCurveTo(M(80), M(63), M(73), M(78)); hs.lineTo(M(56), M(102));
+    hs.quadraticCurveTo(M(44), M(116), M(38), M(130)); hs.quadraticCurveTo(M(35), M(149), M(40), M(149));
+    add(new T.ExtrudeGeometry(hs, { depth: .03, bevelEnabled: true, bevelSize: .006, bevelThickness: .006, bevelSegments: 4, curveSegments: 10 }), holsterM, 0, 0, -.015, hol);
+        // relevo moldado por cima do ferrolho, e os frisos
+    const bulge = new T.Shape(); bulge.moveTo(M(46), M(146)); bulge.lineTo(M(188), M(146)); bulge.quadraticCurveTo(M(197), M(146), M(197), M(137));
+    bulge.lineTo(M(197), M(108)); bulge.quadraticCurveTo(M(197), M(100), M(188), M(100)); bulge.lineTo(M(60), M(100)); bulge.quadraticCurveTo(M(46), M(118), M(46), M(146));
+    add(new T.ExtrudeGeometry(bulge, { depth: .034, bevelEnabled: true, bevelSize: .005, bevelThickness: .006, bevelSegments: 4, curveSegments: 8 }), holsterM, 0, 0, -.017, hol);
+    for (let i = 0; i < 6; i++) add(new T.BoxGeometry(.004, .03, .002), std(0x1a1a1a, .7), .125 + i * .011, .123, .0235, hol);
+    const hood = add(new T.TorusGeometry(.022, .0045, 8, 20, Math.PI), std(0x222222, .6), .03, .126, 0, hol); hood.rotation.y = Math.PI / 2;
+    for (const s of [-1, 1]) {
+      add(new T.BoxGeometry(.024, .007, .005), std(0x222222, .6), .042, .125, s * .023, hol);
+      add(new T.CylinderGeometry(.005, .005, .004, 12), std(0x777777, .3, .8), .054, .125, s * .0235, hol).rotation.x = Math.PI / 2;   // pino da trava
+    }
+
+    // telefone de disco preto e brilhante: base em degraus, corpo de pirâmide com o disco na frente inclinada,
+    // os dois ganchos em forquilha, o fone deitado neles (auricular e bocal nas pontas) e o fio enrolado
+    const bake = std(0x1e1e1e, .2, .15);
+    const phone = new T.Group(); phone.position.set(-.75, 0, -.17); phone.rotation.y = .5; scene.add(phone);
+    add(new T.BoxGeometry(.22, .016, .19), bake, 0, .008, 0, phone);
+    add(new T.BoxGeometry(.206, .012, .176), bake, 0, .022, 0, phone);
+    const BH = .075, rT = .07, rB = .125;
+    const body = add(new T.CylinderGeometry(rT, rB, BH, 4, 1), bake, 0, .028 + BH / 2, 0, phone); body.rotation.y = Math.PI / 4; body.scale.set(1, 1, .9);
+    const halfB = rB * Math.SQRT1_2, halfT = rT * Math.SQRT1_2, faceTilt = Math.atan2((halfB - halfT) * .9, BH);
+    add(new T.BoxGeometry(halfT * 2 - .01, .014, halfT * 1.8 - .01), bake, 0, .028 + BH + .007, 0, phone);           // topo
+    const dialTex = tex(256, 256, (x, w) => {
+      const c = w / 2;
+      x.fillStyle = "#e4e4e4"; circle(x, c, c, c - 1);                                                              // cartão dos números
+      x.textAlign = "center"; x.textBaseline = "middle"; x.font = "bold 26px Arial, Helvetica, sans-serif";
+      x.fillStyle = "#141414"; x.beginPath(); x.arc(c, c, c - 1, 0, Math.PI * 2); x.arc(c, c, 56, 0, Math.PI * 2, true); x.fill();   // disco preto
+      for (let i = 0; i < 10; i++) {
+        const a = -.55 - i * .52, px = c + Math.cos(a) * 88, py = c + Math.sin(a) * 88;
+        x.fillStyle = "#d4d4d4"; circle(x, px, py, 21); x.fillStyle = "#111"; x.fillText(String((i + 1) % 10), px, py + 1);
+      }
+      x.fillStyle = "#111"; x.font = "bold 20px Arial, Helvetica, sans-serif"; x.fillText("WHI", c, c - 12); x.fillText("1212", c, c + 14);
+    });
+    const dial = new T.Group(); dial.position.set(0, .028 + BH / 2, (halfB + halfT) / 2 * .9 + .003); dial.rotation.x = -faceTilt; phone.add(dial);
+    add(new T.CircleGeometry(.034, 40), std(0xffffff, .3, 0, { map: dialTex }), 0, 0, .001, dial);
+    add(new T.TorusGeometry(.034, .0025, 8, 40), bake, 0, 0, .001, dial);
+    add(new T.BoxGeometry(.004, .012, .006), chrome, Math.cos(.52) * .036, -Math.sin(.52) * .036, .003, dial).rotation.z = -.52;   // batente do disco
+    const cradleY = .028 + BH + .014;
+    for (const s of [-1, 1]) {                                                                                    // forquilhas
+      add(new T.BoxGeometry(.016, .045, .022), bake, s * .045, cradleY + .02, 0, phone);
+      const fork = add(new T.TorusGeometry(.013, .005, 8, 14, Math.PI), bake, s * .045, cradleY + .052, 0, phone); fork.rotation.set(0, Math.PI / 2, Math.PI);
+    }
+    const hsY = cradleY + .044;
+    add(new T.TubeGeometry(new T.CatmullRomCurve3([[-.1, hsY - .03, 0], [-.092, hsY - .006, 0], [-.06, hsY + .005, 0], [0, hsY + .008, 0], [.06, hsY + .005, 0], [.092, hsY - .006, 0], [.1, hsY - .03, 0]].map(p => new T.Vector3(...p))), 40, .0095, 12), bake, 0, 0, 0, phone);
+    for (const s of [-1, 1]) {                                                                                    // auricular e bocal
+      const cup = lathe([[0, 0], [.022, 0], [.027, .006], [.028, .018], [.022, .03], [.012, .036], [0, .037]], bake, s * .104, hsY - .066, 0, phone);
+      cup.rotation.z = -s * .35; if (s > 0) cup.scale.setScalar(.9);
+    }
+    const cordBase = new T.CatmullRomCurve3([[-.11, hsY - .07, .01], [-.15, .06, .05], [-.17, .01, .04], [-.165, .006, -.04], [-.13, .008, -.08], [-.1, .018, -.07]].map(p => new T.Vector3(...p)));
+    const coil = [], up = new T.Vector3(0, 1, 0);
+    for (let i = 0; i <= 400; i++) {
+      const k = i / 400, p = cordBase.getPointAt(k), tg = cordBase.getTangentAt(k), n = new T.Vector3().crossVectors(tg, up).normalize(), b = new T.Vector3().crossVectors(tg, n);
+      const a = k * Math.PI * 2 * 45; p.addScaledVector(n, Math.cos(a) * .0055).addScaledVector(b, Math.sin(a) * .0055); p.y = Math.max(.003, p.y); coil.push(p);
+    }
+    add(new T.TubeGeometry(new T.CatmullRomCurve3(coil), 1200, .0016, 5), bake, 0, 0, 0, phone);
+
+    // chapéu fedora, relógio de bolso, jornal, fotos
+    const hat = lathe([[0, .108], [.06, .112], [.08, .09], [.085, .02], [.11, .012], [.165, .006], [.165, 0], [.1, .004], [0, .004]], std(0x5a5a5a, .9), .66, 0, -.3);
+    hat.scale.set(1.1, 1, 1);
+    add(new T.CylinderGeometry(.086, .086, .022, 32), std(0x1a1a1a, .8), .66, .035, -.3).scale.set(1.1, 1, 1);
+    const watchTex = tex(128, 128, (x, w) => {
+      x.fillStyle = "#ececec"; circle(x, w / 2, w / 2, w / 2 - 2); x.fillStyle = "#222";
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; x.fillRect(w / 2 + Math.sin(a) * 50 - 2, w / 2 - Math.cos(a) * 50 - 2, 4, 4); }
+      x.strokeStyle = "#111"; x.lineWidth = 4; x.beginPath(); x.moveTo(w / 2, w / 2); x.lineTo(w / 2 + 22, w / 2 + 10); x.moveTo(w / 2, w / 2); x.lineTo(w / 2 + 12, w / 2 - 38); x.stroke();
+    });
+    add(new T.CylinderGeometry(.03, .03, .012, 32), std(0xc8c8c8, .3, .9), .17, .006, .2);
+    add(new T.CircleGeometry(.026, 32), std(0xffffff, .4, 0, { map: watchTex }), .17, .0125, .2).rotation.x = -Math.PI / 2;
+    add(new T.CylinderGeometry(.005, .005, .01, 8), std(0xc8c8c8, .3, .9), .17, .006, .165).rotation.x = Math.PI / 2;
+    const chainPts = [new T.Vector3(.17, .005, .16), new T.Vector3(.2, .004, .13), new T.Vector3(.24, .004, .16), new T.Vector3(.27, .004, .12)];
+    add(new T.TubeGeometry(new T.CatmullRomCurve3(chainPts), 40, .0018, 6), std(0xc8c8c8, .3, .9), 0, 0, 0);
+    const newsTex = tex(512, 360, (x, w, h) => {
+      x.fillStyle = "#cfcfcf"; x.fillRect(0, 0, w, h);
+      x.fillStyle = "#1a1a1a"; x.font = "bold 54px Georgia, 'Times New Roman', serif"; x.textAlign = "center"; x.fillText("THE TIMES", w / 2, 60);
+      x.fillRect(20, 74, w - 40, 3); x.font = "bold 20px Georgia, serif"; x.fillText("LONDRES · 14 DE NOVEMBRO DE 1947", w / 2, 98);
+      x.font = "bold 30px Georgia, serif"; x.fillText("ASSALTO A BANCO: LADRÃO À SOLTA", w / 2, 142);
+      x.fillStyle = "#7a7a7a"; for (let i = 0; i < 12; i++) x.fillRect(20 + (i % 3) * 162, 160 + Math.floor(i / 3) * 46, 150, 34);
+    });
+    add(new T.PlaneGeometry(.34, .24), std(0xffffff, .95, 0, { map: newsTex }), .12, .002, -.32).rotation.set(-Math.PI / 2, 0, .1);
+    const photoTex = tex(160, 120, (x, w, h) => {
+      x.fillStyle = "#e0e0e0"; x.fillRect(0, 0, w, h); x.fillStyle = "#3a3a3a"; x.fillRect(8, 8, w - 16, h - 28);
+      const img = THIEF_RUN_FRAMES[0], s = (h - 34) / img.height; x.imageSmoothingEnabled = false;
+      x.drawImage(img, w / 2 - img.width * s / 2, 10, img.width * s, img.height * s);
+    });
+    for (const [px, pz, r] of [[-.2, -.18, .3], [-.12, -.25, -.15]]) add(new T.BoxGeometry(.11, .002, .085), [0, 0, 0, 0, 0, 0].map((_, i) => i === 2 ? texMat(photoTex) : std(0xe0e0e0)), px, .003, pz).rotation.y = r;
+
+    // plaquinha de mesa com o nome do detetive
+    const plateTex = tex(512, 128, (x, w, h) => {
+      x.fillStyle = "#cfcfcf"; x.fillRect(0, 0, w, h); x.fillStyle = "rgba(255,255,255,.4)"; x.fillRect(0, 0, w, 8);
+      x.strokeStyle = "#555"; x.lineWidth = 6; x.strokeRect(6, 6, w - 12, h - 12);
+      x.fillStyle = "#111"; x.textAlign = "center"; x.font = "bold 50px 'Courier New', monospace"; x.fillText(DETECTIVE, w / 2, 66);
+      x.font = "22px 'Courier New', monospace"; x.fillText("DIVISÃO DE HOMICÍDIOS", w / 2, 102);
+    });
+    const plate = new T.Group(); plate.position.set(.44, 0, .26); plate.rotation.y = -.18; plate.scale.setScalar(1.35); scene.add(plate);
+    const prism = new T.Shape([[-.03, 0], [.03, 0], [-.012, .075]].map(([a, b]) => new T.Vector2(a, b))); // face da frente quase em pé
+    add(new T.ExtrudeGeometry(prism, { depth: .3, bevelEnabled: false }), std(0x4a4a4a, .6), .15, 0, 0, plate).rotation.y = -Math.PI / 2;
+    const plaque = add(new T.PlaneGeometry(.27, .06), std(0xffffff, .35, .3, { map: plateTex, emissive: 0xffffff, emissiveMap: plateTex, emissiveIntensity: .12 }), 0, .037, .0105, plate);
+    plaque.rotation.x = -Math.atan2(.042, .075);
+
+    // ----- a pasta (deitada no centro): o fundo, a folha com a foto do jogo e a capa na dobradiça -----
+    const W = .48, H = W / aspect, m = .014, Wc = W + 2 * m, Hc = H + 2 * m;
+    const site = keep(new T.CanvasTexture(g.site)); site.colorSpace = T.SRGBColorSpace;
+    const folder = new T.Group(); scene.add(folder);
+    const manila = std(0xa4a4a4, .9);
+    add(new T.BoxGeometry(Wc, Hc, .004), manila, 0, 0, 0, folder);
+    add(new T.PlaneGeometry(W, H), keep(new T.MeshBasicMaterial({ map: site, color: 0xd8d8d8 })), 0, 0, .0025, folder).castShadow = false;
+    add(new T.BoxGeometry(.01, .03, .002), std(0x8a8a8a, .3, .8), -W * .4, H / 2 + .005, .004, folder);                 // clipe
+    const innerTex = tex(512, Math.round(512 * Hc / Wc), (x, w, h) => {
+      x.fillStyle = "#a4a4a4"; x.fillRect(0, 0, w, h);
+      for (const [px, py, r] of [[.1, .12, -.04], [.42, .3, .05]]) {
+        x.save(); x.translate(px * w, py * h); x.rotate(r);
+        x.fillStyle = "#000"; x.fillRect(-3, -3, w * .4 + 6, h * .55 + 6); x.fillStyle = "#dcdcdc"; x.fillRect(0, 0, w * .4, h * .55);
+        x.fillStyle = "#9a9a9a"; for (let k = 1; k < 9; k++) x.fillRect(10, k * h * .055, w * .4 - 20 - rand(40), 3);
+        x.fillStyle = "#6a6a6a"; x.fillRect(w * .05, -14, 9, 26); x.restore();
+      }
+    });
+    const coverTex = tex(1024, Math.round(1024 * Hc / Wc), drawCoverFace);
+    const pivot = new T.Group(); pivot.position.set(-Wc / 2, 0, .006); folder.add(pivot);
+    const cover = add(new T.BoxGeometry(Wc, Hc, .004), [manila, manila, manila, manila, texMat(coverTex), texMat(innerTex)], Wc / 2, 0, 0, pivot);
+    add(new T.BoxGeometry(.03, Hc * .3, .004), std(0x9c9c9c, .9), Wc + .014, Hc * .22, 0, pivot);                                         // aba saindo da borda
+    // deitada: a capa "para cima" vira o teto (+y), o alto da folha fica para o fundo da sala
+    const qLie = new T.Quaternion().setFromEuler(new T.Euler(-Math.PI / 2, 0, 0));
+    // em pé: girada 90° no próprio plano (fica de retrato), de frente para a câmera, um pouco inclinada para trás
+    const qStand = new T.Quaternion().setFromEuler(new T.Euler(-.18, 0, 0)).multiply(new T.Quaternion().setFromEuler(new T.Euler(0, 0, Math.PI / 2)));
+    const lieAt = new T.Vector3(0, .006, 0), standAt = new T.Vector3(-.06, Wc / 2 * Math.cos(.18) + .005, .2);
+
+    // a ficha do caso, em pé, apoiada em dois livros
+    const cardTex = tex(800, 600, drawCardFace);
+    for (const [y, w, d, r] of [[.022, .32, .22, .05], [.064, .3, .21, -.04]]) add(new T.BoxGeometry(w, .042, d), std(y < .04 ? 0x4a4a4a : 0x6a6a6a, .7), .4, y, .04).rotation.y = r;
+    const bookTex = tex(256, 64, (x, w, h) => { x.fillStyle = "#4a4a4a"; x.fillRect(0, 0, w, h); x.fillStyle = "#d0d0d0"; x.font = "bold 22px Georgia, serif"; x.textAlign = "center"; x.fillText("CÓDIGO PENAL", w / 2, 40); });
+    add(new T.PlaneGeometry(.24, .036), std(0xffffff, .7, 0, { map: bookTex }), .4, .022, .152).rotation.y = .05;
+    const card = add(new T.BoxGeometry(.32, .24, .003), [0, 0, 0, 0, 0, 0].map((_, i) => i === 4 ? texMat(cardTex, { emissive: 0xffffff, emissiveMap: cardTex, emissiveIntensity: .08 }) : std(0xdcdcdc)), .4, .085 + .12, .07);
+    card.rotation.set(-.2, -.22, .02);
+
+    // fumaça do café e do cigarro: "manchas" de fumaça que sobem balançando, crescem e somem
+    const puff = tex(64, 64, (x, w) => { const gr = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, "rgba(255,255,255,.9)"); gr.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = gr; x.fillRect(0, 0, w, w); });
+    const smokes = [];
+    const emitter = (x, y, z, n, rise, size) => {
+      for (let i = 0; i < n; i++) {
+        const mat = keep(new T.SpriteMaterial({ map: puff, color: 0xdcdcdc, transparent: true, depthWrite: false, opacity: 0 }));
+        const s = new T.Sprite(mat); scene.add(s);
+        smokes.push({ s, x, y, z, rise, size, phase: i / n, seed: Math.random() * 10 });
+      }
+    };
+    emitter(steamAt.x, steamAt.y, steamAt.z, 18, .3, .016);
+    emitter(emberAt.x, emberAt.y, emberAt.z, 16, .26, .016);
+
+    const camera = new T.PerspectiveCamera(n3Fov(aspect), aspect, .01, 30);
+    return { scene, camera, folder, pivot, cover, coverTex, cardTex, card, ember, emberLight, clockHands, smokes, qLie, qStand, lieAt, standAt, W, H, Wc, Hc, all };
+  }
+
+  // capa por fora (quem desenha é o canvas da textura). A capa é de paisagem, mas no fim fica em pé (de
+  // retrato): o conteúdo é desenhado girado 90°, para ficar de pé na tela. n = letras datilografadas; k = carimbo
+  function drawCoverFace(x, w, h, n = 0, k = 0){
+    x.fillStyle = "#8e8e8e"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "rgba(255,255,255,.06)"; for (let i = 0; i < w; i += 9) x.fillRect(i, 0, 2, h);       // fibra do papel
+    x.save(); x.translate(w / 2, h / 2); x.rotate(Math.PI / 2);
+    const PW = h, PH = w; // largura e altura na capa em pé
+    x.textAlign = "center"; x.textBaseline = "middle"; x.fillStyle = "#1a1a1a";
+    x.font = `bold ${Math.round(PW * .07)}px ${TYPE}`; x.fillText("SCOTLAND YARD", 0, -PH * .42);
+    x.fillStyle = "#111"; x.fillRect(-PW * .36, -PH * .385, PW * .72, PH * .045);
+    x.fillStyle = "#e6e6e6"; x.font = `bold ${Math.round(PH * .028)}px ${TYPE}`; x.fillText("ARQUIVO CONFIDENCIAL", 0, -PH * .362);
+    const word = "GAME OVER", fs = Math.round(PW * .85 / (word.length * .6)), step = fs * .6, x0 = -step * (word.length - 1) / 2;
+    x.font = `bold ${fs}px ${TYPE}`;
+    [...word].slice(0, n).forEach((ch, i) => { x.fillStyle = `rgba(17,17,17,${.78 + (i * 37 % 10) / 50})`; x.fillText(ch, x0 + i * step, -PH * .26 + ((i * 53) % 5 - 2)); });
+    if (n >= word.length) {
+      x.fillStyle = "#111"; x.fillRect(x0 - step * .5, -PH * .26 + fs * .55, step * word.length, 4);
+      x.font = `bold ${Math.round(PW * .06)}px ${TYPE}`; x.fillStyle = "#2a2a2a"; x.fillText("CASO Nº " + CASE_NO, 0, -PH * .17);
+    }
+    if (k > 0) {
+      const s = lerp(2.2, 1, ease(k));
+      x.save(); x.translate(0, PH * .435); x.rotate(-.1); x.scale(s, s); x.globalAlpha = .85 * k;
+      x.strokeStyle = "#111"; x.lineWidth = 6; x.strokeRect(-PW * .4, -PH * .04, PW * .8, PH * .08);
+      x.fillStyle = "#111"; x.font = `bold ${Math.round(PW * .085)}px ${TYPE}`; x.fillText("CASO ENCERRADO", 0, 4);
+      x.restore();
+    }
+    x.restore();
+  }
+  // a ficha do caso datilografada, até a linha "shown"
+  function drawCardFace(x, w, h, shown = 0, g = null){
+    x.fillStyle = "#dcdcdc"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#b0b0b0"; for (let ly = h * .22; ly < h - 8; ly += h * .095) x.fillRect(16, ly, w - 32, 2);
+    x.fillStyle = "#5a5a5a"; x.fillRect(16, h * .17, w - 32, 3);
+    x.strokeStyle = "#000"; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, h - 8);
+    if (!g) return;
+    const rows = [
+      ["SCOTLAND YARD", true], ["DEPTO. DE INVESTIGAÇÃO CRIMINAL", false], ["CASO Nº " + CASE_NO, true],
+      ["DETETIVE: " + DETECTIVE, false], ["LOCAL: WHITECHAPEL, LONDRES", false], ["DATA: 14 DE NOVEMBRO DE 1947", false],
+      [`PROVAS: ${g.pts} PONTOS, ${g.lines} LINHAS`, false], ["SUSPEITO: FORAGIDO", true]
+    ];
+    x.fillStyle = "#000"; x.textAlign = "left";
+    rows.slice(0, shown).forEach(([s, big], i) => {
+      x.font = `bold ${Math.round(w * (big ? .052 : .046))}px ${TYPE}`;
+      x.fillText(s, 26, h * (i < 2 ? .1 + i * .065 : .27 + (i - 2) * .095));
+    });
+  }
+
+  function startNoir3D(text, buttons){
+    drawBoard();
+    const W = document.documentElement.clientWidth, H = window.innerHeight, site = document.createElement("canvas");
+    site.width = W; site.height = H;
+    const x = site.getContext("2d");
+    x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
+    x.drawImage(fx, 0, 0, W, H);
+    for (const el of document.querySelectorAll("header, .box, .scorecard, .pad, .board-wrap")) {
+      const r = pageRect(el);
+      if (r.width) x.drawImage(rasterize(el), r.left, r.top);
+    }
+    goFx = { kind: "noir3d", t: 0, site, pts: score.toLocaleString("pt-BR"), lines, bits: [], menu: false, vanish: [], s3: null, typed: -1, stampK: -1, cardShown: -1 };
+    fillGoMenu(text, buttons);
+    goMenu.classList.add("on-folder");
+    gameoverEl.hidden = false;
+    gameoverEl.classList.add("g3d");
+    document.body.classList.add("go-run");
+    sizeGo();
+    ensureRenderer();
+    goFx.s3 = buildNoir3D(goFx);
+  }
+  function disposeNoir3D(s3){
+    if (!s3) return;
+    for (const o of s3.all) o.dispose?.();
+    s3.scene.clear();
+  }
+
+  function drawNoir3D(g, dt){
+    const T = THREE, s3 = g.s3, R = r3, t = g.t, dpr = Math.min(2, window.devicePixelRatio || 1);
+    // tamanho: a cena é desenhada em resolução menor (pixels de N3.pix) e ampliada pelo filtro
+    if (R.w !== goW || R.h !== goH) {
+      R.w = goW; R.h = goH;
+      R.renderer.setPixelRatio(dpr); R.renderer.setSize(goW, goH, false);
+      const rw = Math.ceil(goW / N3.pix), rh = Math.ceil(goH / N3.pix);
+      R.rt.setSize(rw, rh); R.post.uniforms.res.value.set(rw, rh);
+      s3.camera.aspect = goW / goH; s3.camera.fov = n3Fov(goW / goH); s3.camera.updateProjectionMatrix();
+    }
+    const cam = s3.camera, ez = ease(span(t, 0, N3.zoomMs)), ep = ease(span(t, N3.pov, N3.povMs));
+    // câmera, parte 1: de cima, com a folha enchendo a tela, subindo (zoom exponencial)
+    const h0 = s3.H / (2 * Math.tan(cam.fov * Math.PI / 360)) + .006, h1 = 1.55, hz = h0 * Math.pow(h1 / h0, ez);
+    const top = new T.Vector3(0, hz, 0), topQ = new T.Quaternion().setFromEuler(new T.Euler(-Math.PI / 2, 0, 0));
+    // parte 2: desce até o ponto de vista de quem está sentado à mesa
+    const pov = new T.Vector3(.02, .54, 1.22), povLook = new T.Vector3(.02, .34, -.5);
+    const povQ = new T.Quaternion().setFromRotationMatrix(new T.Matrix4().lookAt(pov, povLook, new T.Vector3(0, 1, 0)));
+    const mid = new T.Vector3(0, 1.3, 1.0);
+    const a = top.clone().lerp(mid, ep), b = mid.clone().lerp(pov, ep);
+    cam.position.copy(a.lerp(b, ep));
+    cam.quaternion.copy(topQ).slerp(povQ, ep);
+    // no começo, colada na folha, a câmera só enxerga o que está a menos de 2 cm da mesa (a pasta): assim o
+    // primeiro quadro é exatamente a tela do jogo; o corte some rápido enquanto ela sobe
+    cam.near = Math.max(.01, h0 - .02 - (hz - h0) * 3); cam.updateProjectionMatrix();
+    // a capa fecha; depois a pasta é pega (sobe um pouco) e fica em pé, de frente
+    s3.pivot.rotation.y = -Math.PI * (1 - ease(span(t, N3.close, N3.closeMs)));
+    const es = ease(span(t, N3.pov + 300, N3.povMs - 300));
+    s3.folder.quaternion.copy(s3.qLie).slerp(s3.qStand, es);
+    s3.folder.position.copy(s3.lieAt).lerp(s3.standAt, es); s3.folder.position.y += Math.sin(es * Math.PI) * .12;
+    // a capa datilografada e o carimbo; a ficha do caso, linha por linha (só redesenha quando muda)
+    const n = Math.max(0, Math.min(9, Math.floor((t - N3.type) / N3.typeGap) + 1)), k = span(t, N3.stamp, 200);
+    if (n !== g.typed || (k > 0 && k !== g.stampK && g.stampK < 1)) { g.typed = n; g.stampK = k; s3.coverTex.redraw(n, k); }
+    const shown = Math.max(0, Math.min(8, Math.floor((t - N3.lines) / N3.lineGap) + 1));
+    if (shown !== g.cardShown) { g.cardShown = shown; s3.cardTex.redraw(shown, g); }
+    // brasa piscando e a fumaça subindo
+    const glow = .6 + .4 * Math.sin(t / 250);
+    s3.ember.material.color.setScalar(glow); s3.emberLight.intensity = .12 + .14 * glow;
+    // relógio da parede: começa em 23:57:40 e anda de verdade (o ponteiro dos segundos dá a volta)
+    const sec = 23 * 3600 + 57 * 60 + 40 + t / 1000, hands = s3.clockHands;
+    hands.s.rotation.z = -(sec % 60) / 60 * Math.PI * 2; hands.m.rotation.z = -(sec / 60 % 60) / 60 * Math.PI * 2; hands.h.rotation.z = -(sec / 3600 % 12) / 12 * Math.PI * 2;
+    for (const p of s3.smokes) {
+      const f = (t / 3200 + p.phase) % 1;
+      p.s.position.set(p.x + Math.sin(f * 7 + p.seed + t / 900) * .025 * f, p.y + f * p.rise, p.z + Math.cos(f * 5 + p.seed) * .015 * f);
+      p.s.scale.setScalar(p.size * (.6 + f * 2.2));
+      p.s.material.opacity = Math.sin(f * Math.PI) * .2;
+    }
+    // desenha a cena na textura pequena e passa pelo filtro de cinza pontilhado
+    R.renderer.setRenderTarget(R.rt); R.renderer.render(s3.scene, cam);
+    R.renderer.setRenderTarget(null); R.renderer.render(R.postScene, R.postCam);
+    // carimbo faz a tela tremer
+    if (k > 0 && k < 1) gameoverEl.style.transform = `translate(${(Math.random() - .5) * 4}px, ${(Math.random() - .5) * 4}px)`;
+    else if (gameoverEl.style.transform) gameoverEl.style.transform = "";
+    // botões sobre a capa em pé: onde ela aparece na tela (a capa em pé tem "baixo" = -x da capa)
+    if (t >= N3.menu) {
+      s3.cover.updateMatrixWorld(true);
+      const scr = (lx, ly) => {
+        const v = new T.Vector3(lx, ly, .003).applyMatrix4(s3.cover.matrixWorld).project(cam);
+        return [(v.x + 1) / 2 * goW, (1 - v.y) / 2 * goH];
+      };
+      const [mx, my] = scr(s3.Wc * .1, 0), [lx2] = scr(0, s3.Hc * .4), [rx2] = scr(0, -s3.Hc * .4);
+      goMenu.style.left = Math.round(mx) + "px";
+      goMenu.style.top = Math.round(my) + "px";
+      goMenu.style.width = Math.round(Math.max(160, Math.min(320, Math.abs(rx2 - lx2)))) + "px";
+      if (!g.menu) { g.menu = true; goMenu.hidden = false; void goMenu.offsetWidth; goMenu.classList.add("show"); }
     }
   }
 
@@ -3232,13 +4271,36 @@ body.hk-off .board-wrap, body.hk-off .box, body.hk-off .scorecard, body.hk-off .
       if (!collide(cur.m, cur.x, cur.y + 1)) { cur.y++; if (held.down) { score++; hud(); } }
       else { dropAcc = 0; break; }
     }
-    if (cur && grounded()) { lockAcc += dt; if (lockAcc >= LOCK) lock(); }
+    if (cur && grounded()) { lockAcc += dt; if (lockAcc >= lockMs()) lock(); }
     else lockAcc = 0;
   }
+  // alerta de pilha alta: a partir de 45% da altura a borda do tabuleiro pisca; quanto mais alto, mais rápido
+  // (de 0,8 a 4,5 piscadas/s) e mais forte. Cada tema pinta com as variáveis: --al (suave, 0..1) e --ab (liga
+  // e desliga seco, 0 ou a força); com "reduzir movimento" fica aceso direto, sem piscar
+  const boardWrap = document.querySelector(".board-wrap");
+  let alertK = 0, alertPhase = 0;
+  function updateAlert(dt){
+    let top = ROWS;
+    if (state === "playing" || state === "paused") top = grid.findIndex(row => row.some(Boolean));
+    const h = top < 0 ? 0 : ROWS - top, target = Math.max(0, Math.min(1, (h - ROWS * .45) / (ROWS * .45)));
+    alertK += (target - alertK) * Math.min(1, dt / 250);
+    if (alertK < .01) {
+      if (boardWrap.classList.contains("alert")) { boardWrap.classList.remove("alert"); boardWrap.style.removeProperty("--al"); boardWrap.style.removeProperty("--ab"); }
+      alertPhase = 0;
+      return;
+    }
+    if (state === "playing") alertPhase = (alertPhase + dt * (.8 + 3.7 * alertK) / 1000) % 1;
+    const strength = .35 + .65 * alertK, wave = reduceMotion ? 1 : .5 - .5 * Math.cos(alertPhase * Math.PI * 2);
+    boardWrap.classList.add("alert");
+    boardWrap.style.setProperty("--al", (wave * strength).toFixed(3));
+    boardWrap.style.setProperty("--ab", (reduceMotion || wave > .5 ? strength : 0).toFixed(3));
+  }
+
   function frame(now){
     // nunca negativo: start() e a pausa marcam "last" com performance.now(), que pode ser depois do "now" deste quadro
     const dt = Math.max(0, Math.min(100, now - last)); last = now;
     update(dt);
+    updateAlert(dt);
     drawBoard(); drawSide();
     if (theme === "padrao") { updateFx(dt); drawFx(); }
     else if (theme === "noir") { updateNoir(dt); drawNoir(); }
